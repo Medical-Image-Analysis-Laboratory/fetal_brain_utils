@@ -1,7 +1,7 @@
 """
 Run the NeSVor pipeline on data.
 """
-from ..utils import iter_dir
+from fetal_brain_utils.utils import iter_dir, OUT_JSON_ORDER
 from bids.layout.writing import build_path
 import argparse
 from pathlib import Path
@@ -13,17 +13,8 @@ import re
 # Default data path
 DATA_PATH = Path("/media/tsanchez/tsanchez_data/data/data")
 AUTO_MASK_PATH = "/media/tsanchez/tsanchez_data/data/out_anon/masks"
-OUT_JSON_ORDER = [
-    "sr-id",
-    "session",
-    "ga",
-    "stacks",
-    "use_auto_mask",
-    "config_path",
-    "info",
-    "im_path",
-    "mask_path",
-]
+
+BATCH_SIZE = 8192
 
 
 def get_mask_path(bids_dir, subject, ses, run):
@@ -169,7 +160,7 @@ def iterate_subject(
                     f"--output-volume {output_file} "
                     f"--output-resolution {res} "
                     f"--output-model {model} "
-                    "--batch-size 8192"
+                    f"--batch-size {BATCH_SIZE}"
                 )
             else:
                 cmd = (
@@ -177,7 +168,8 @@ def iterate_subject(
                     f"--input-model {model} "
                     f"--output-resolution {res} "
                     f"--output-volume {output_file} "
-                    f"--output-resolution {res}"
+                    f"--output-resolution {res} "
+                    f"--inference-batch-size 16384"
                 )
             conf["info"] = {
                 "reconstruction": "NeSVoR",

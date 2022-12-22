@@ -44,7 +44,7 @@ def main(
         )
     masks_derivatives_dir = None if automated else masks_derivatives_dir
     if not out_folder:
-        out_folder = f"{run_type}_{mask_str}"
+        out_folder = f"derivatives/{run_type}_{mask_str}"
         out_folder = data_path / out_folder
     os.makedirs(out_folder, exist_ok=True)
 
@@ -100,7 +100,9 @@ def main(
 
 
 if __name__ == "__main__":
-    p = argparse.ArgumentParser()
+    p = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     p.add_argument(
         "--data_path",
         default=DATA_PATH,

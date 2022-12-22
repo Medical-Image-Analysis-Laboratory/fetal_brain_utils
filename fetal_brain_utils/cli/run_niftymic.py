@@ -12,7 +12,7 @@ from fetal_brain_utils.utils import (
     get_cropped_stack_based_on_mask,
     filter_run_list,
     find_run_id,
-    filter_and_complement_mask_list,
+    OUT_JSON_ORDER,
 )
 from fetal_brain_utils.utils import (
     filter_and_complement_mask_list as filter_mask_list,
@@ -57,6 +57,7 @@ import re
 def iterate_subject(
     sub,
     config_sub,
+    config_path,
     sub_ses_dict,
     data_path,
     output_path,
@@ -102,132 +103,155 @@ def iterate_subject(
     sub_path = f"sub-{sub}"
     if not isinstance(config_sub, list):
         config_sub = [config_sub]
-
+    failure_list = []
     for conf in config_sub:
-        if "session" not in conf:
-            ses = "1"
-            img_list = sub_ses_dict[sub]
-            mask_list = sub_ses_masks_dict[sub]
+        try:
+            if "session" not in conf:
+                ses = "1"
+                img_list = sub_ses_dict[sub]
+                mask_list = sub_ses_masks_dict[sub]
 
-        else:
-            ses = conf["session"]
-            img_list = sub_ses_dict[sub][ses]
-            mask_list = sub_ses_masks_dict[sub][ses]
+            else:
+                ses = conf["session"]
+                img_list = sub_ses_dict[sub][ses]
+                mask_list = sub_ses_masks_dict[sub][ses]
 
-        stacks = conf["stacks"] if "stacks" in conf else find_run_id(img_list)
-        run_id = conf["sr-id"] if "sr-id" in conf else "1"
-
-        run_path = f"run-{run_id}"
-        ses_path = f"ses-{ses}"
-
-        mask_list, _ = filter_mask_list(stacks, sub, ses, mask_list)
-        img_list = filter_run_list(stacks, img_list)
-
-        sub_ses_anat = f"{sub_path}/{ses_path}/anat"
-
-        # Construct the data and mask path from their respective
-        # base paths
-        input_path = data_path / sub_ses_anat
-        mask_path = mask_base_path / sub_ses_anat
-
-        input_cropped_path = cropped_path_base / sub_ses_anat / run_path
-        mask_cropped_path = cropped_mask_path_base / sub_ses_anat / run_path
-        if not fake_run:
-            os.makedirs(input_cropped_path, exist_ok=True)
-            os.makedirs(mask_cropped_path, exist_ok=True)
-
-        # Get in-plane resolution to be set as target resolution.
-        resolution = ni.load(img_list[0]).header["pixdim"][1]
-
-        # Construct the path to each data point and mask in
-        # the filesystem of the docker image
-        filename_data, filename_masks, filename_prepro = [], [], []
-        boundary_mm = 15
-        crop_path = partial(
-            get_cropped_stack_based_on_mask,
-            boundary_i=boundary_mm,
-            boundary_j=boundary_mm,
-            boundary_k=boundary_mm,
-        )
-        for image, mask in zip(img_list, mask_list):
-
-            # Preprocessing run : crop and mask the low-resolution stacks
-            cropped_im = str(image).replace(
-                str(input_path), str(input_cropped_path)
+            stacks = (
+                conf["stacks"] if "stacks" in conf else find_run_id(img_list)
             )
-            cropped_mask = str(mask).replace(
-                str(mask_path), str(mask_cropped_path)
+            run_id = conf["sr-id"] if "sr-id" in conf else "1"
+
+            run_path = f"run-{run_id}"
+            ses_path = f"ses-{ses}"
+
+            mask_list, auto_masks = filter_mask_list(
+                stacks, sub, ses, mask_list
+            )
+            img_list = filter_run_list(stacks, img_list)
+            conf["use_auto_mask"] = auto_masks
+            conf["im_path"] = img_list
+            conf["mask_path"] = mask_list
+            conf["config_path"] = str(config_path)
+            sub_ses_anat = f"{sub_path}/{ses_path}/anat"
+
+            # Construct the data and mask path from their respective
+            # base paths
+            input_path = data_path / sub_ses_anat
+            mask_path = mask_base_path / sub_ses_anat
+
+            input_cropped_path = cropped_path_base / sub_ses_anat / run_path
+            mask_cropped_path = (
+                cropped_mask_path_base / sub_ses_anat / run_path
+            )
+            if not fake_run:
+                os.makedirs(input_cropped_path, exist_ok=True)
+                os.makedirs(mask_cropped_path, exist_ok=True)
+
+            # Get in-plane resolution to be set as target resolution.
+            resolution = ni.load(img_list[0]).header["pixdim"][1]
+
+            # Construct the path to each data point and mask in
+            # the filesystem of the docker image
+            filename_data, filename_masks, filename_prepro = [], [], []
+            boundary_mm = 15
+            crop_path = partial(
+                get_cropped_stack_based_on_mask,
+                boundary_i=boundary_mm,
+                boundary_j=boundary_mm,
+                boundary_k=0,
+            )
+            for image, mask in zip(img_list, mask_list):
+                print(f"Processing {image} {mask}")
+                im_file, mask_file = Path(image).name, Path(mask).name
+                cropped_im = input_cropped_path / im_file
+                cropped_mask = mask_cropped_path / mask_file
+                im, m = ni.load(image), ni.load(mask)
+
+                imc = crop_path(im, m)
+                maskc = crop_path(m, m)
+                # Masking
+                imc = ni.Nifti1Image(
+                    imc.get_fdata() * maskc.get_fdata(), imc.affine
+                )
+
+                ni.save(imc, cropped_im)
+                ni.save(maskc, cropped_mask)
+
+                # Define the file and path names inside the docker volume
+                run_im = Path("/data") / im_file
+                run_mask = Path("/seg") / mask_file
+                filename_data.append(str(run_im))
+                filename_masks.append(str(run_mask))
+                filename_prepro.append(
+                    "/srr/preprocessing_n4itk/" + os.path.basename(run_im)
+                )
+            filename_data = " ".join(filename_data)
+            filename_masks = " ".join(filename_masks)
+            filename_prepro = " ".join(filename_prepro)
+            ##
+            # Reconstruction stage
+            ##
+
+            recon_path = recon_path_base / sub_ses_anat / run_path
+            if not fake_run:
+                os.makedirs(recon_path, exist_ok=True)
+
+            # Replace input and mask path by preprocessed
+            input_path, mask_path = input_cropped_path, mask_cropped_path
+            cmd = (
+                f"docker run -v {input_path}:/data "
+                f"-v {mask_path}:/seg "
+                f"-v {recon_path}:/srr "
+                f"renbem/niftymic python "
+                f"{RECONSTRUCTION_PYTHON} "
+                f"--filenames {filename_data} "
+                f" --filenames-masks {filename_masks}"
+                f" --dir-output /srr"
+                f" --isotropic-resolution {resolution}"
+                f" --suffix-mask _mask"
+                f" --alpha {alpha}"
+            )
+            print(f"RECONSTRUCTION STAGE (PID={pid})")
+            print(cmd)
+            print()
+            if not fake_run:
+                os.system(cmd)
+            ## Copy files in BIDS format
+
+            out_path = output_path / sub_path / ses_path / "anat"
+            os.makedirs(out_path, exist_ok=True)
+            final_base = str(
+                out_path / f"{sub_path}_{ses_path}_{run_path}_SR_T2w"
+            )
+            final_rec = final_base + ".nii.gz"
+            final_rec_json = final_base + ".json"
+            final_mask = final_base + "_mask.nii.gz"
+
+            shutil.copyfile(
+                recon_path / "recon_template_space/srr_template.nii.gz",
+                final_rec,
+            )
+            shutil.copyfile(
+                recon_path / "recon_template_space/srr_template_mask.nii.gz",
+                final_mask,
             )
 
-            im, m = ni.load(image), ni.load(mask)
-
-            imc = crop_path(im, m)
-            maskc = crop_path(m, m)
-            # Masking
-            imc = ni.Nifti1Image(
-                imc.get_fdata() * maskc.get_fdata(), imc.affine
-            )
-
-            ni.save(imc, cropped_im)
-            ni.save(maskc, cropped_mask)
-
-            # Define the file and path names inside the docker volume
-            run_im = str(image).replace(str(input_path), "/data")
-            run_mask = str(mask).replace(str(mask_path), "/seg")
-
-            filename_data.append(run_im)
-            filename_masks.append(run_mask)
-            filename_prepro.append(
-                "/srr/preprocessing_n4itk/" + os.path.basename(run_im)
-            )
-        filename_data = " ".join(filename_data)
-        filename_masks = " ".join(filename_masks)
-        filename_prepro = " ".join(filename_prepro)
-        ##
-        # Reconstruction stage
-        ##
-        recon_path = recon_path_base / sub_ses_anat / run_path
-        if not fake_run:
-            os.makedirs(recon_path, exist_ok=True)
-
-        # Replace input and mask path by preprocessed
-        input_path, mask_path = input_cropped_path, mask_cropped_path
-        cmd = (
-            f"docker run -v {input_path}:/data "
-            f"-v {mask_path}:/seg "
-            f"-v {recon_path}:/srr "
-            f"renbem/niftymic python "
-            f"{RECONSTRUCTION_PYTHON} "
-            f"--filenames {filename_data} "
-            f" --filenames-masks {filename_masks}"
-            f" --dir-output /srr"
-            f" --isotropic-resolution {resolution}"
-            f" --suffix-mask _mask"
-            f" --alpha {alpha}"
-        )
-        print(f"RECONSTRUCTION STAGE (PID={pid})")
-        print(cmd)
-        print()
-        if not fake_run:
-            os.system(cmd)
-        ## Copy files in BIDS format
-
-        out_path = output_path / sub_path / ses_path / "anat"
-        os.makedirs(out_path, exist_ok=True)
-        final_rec = (
-            out_path / f"{sub_path}_{ses_path}_{run_path}_SR_T2w.nii.gz"
-        )
-        final_mask = (
-            out_path / f"{sub_path}_{ses_path}_{run_path}_SR_T2w_mask.nii.gz"
-        )
-
-        shutil.copyfile(
-            recon_path / "recon_template_space/srr_template.nii.gz", final_rec
-        )
-        shutil.copyfile(
-            recon_path / "recon_template_space/srr_template_mask.nii.gz",
-            final_mask,
-        )
+            conf["info"] = {
+                "reconstruction": "NiftyMIC",
+                "alpha": alpha,
+                "command": cmd,
+            }
+            conf = {k: conf[k] for k in OUT_JSON_ORDER}
+            with open(final_rec_json, "w") as f:
+                json.dump(conf, f, indent=4)
+        except Exception as e:
+            msg = f"{sub_path} - {ses_path} failed: {e}"
+            print(msg)
+            failure_list.append(msg)
+        if len(failure_list) > 0:
+            print("SOME RUNS FAILED:")
+            for e in failure_list:
+                print(e)
 
 
 def main(
@@ -250,6 +274,7 @@ def main(
     iterate = partial(
         iterate_subject,
         sub_ses_dict=sub_ses_dict,
+        config_path=config,
         data_path=data_path,
         output_path=out_path,
         masks_folder=masks_folder,

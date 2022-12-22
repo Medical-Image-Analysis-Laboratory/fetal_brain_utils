@@ -12,6 +12,17 @@ import os
 from bids.layout.writing import build_path
 
 AUTO_MASK_PATH = "/media/tsanchez/tsanchez_data/data/out_anon/masks"
+OUT_JSON_ORDER = [
+    "sr-id",
+    "session",
+    "ga",
+    "stacks",
+    "use_auto_mask",
+    "config_path",
+    "info",
+    "im_path",
+    "mask_path",
+]
 
 
 def get_mask_path(bids_dir, subject, ses, run):
@@ -337,6 +348,7 @@ def iter_bids(
     target=None,
     return_type="filename",
     skip_run=False,
+    return_all=False,
 ):
     """Return a single iterator over the BIDSLayout obtained from
     pybids - flexibly handles cases with and without a session date.
@@ -360,7 +372,7 @@ def iter_bids(
                     target=target,
                     return_type=return_type,
                 )
-                if skip_run:
+                if return_all:
                     for o in out:
                         yield (sub, ses, run, o)
                 else:

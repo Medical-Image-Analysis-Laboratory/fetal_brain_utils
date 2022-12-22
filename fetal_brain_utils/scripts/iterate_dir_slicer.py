@@ -46,7 +46,6 @@ if __name__ == "__main__":
     bids_list = csv_to_list(args.bids_csv)
 
     files_dict, masks_dict = get_subject_dict(bids_list)
-    print(files_dict, masks_dict)
     values = list(files_dict.keys())
     main_window = tk.Tk()
     main_window.config(width=300, height=200)

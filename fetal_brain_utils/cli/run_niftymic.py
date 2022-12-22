@@ -7,7 +7,16 @@ sub-<id>_ses-<id>_desc-iso_mask.nii.gz
 Note that, currently, for simulated data, the brain extraction module
 will crash for reasons that are beyond my understanding.
 """
-from mialsrtk_utils import iter_dir
+from fetal_brain_utils.utils import (
+    iter_dir,
+    get_cropped_stack_based_on_mask,
+    filter_run_list,
+    find_run_id,
+    filter_and_complement_mask_list,
+)
+from fetal_brain_utils.utils import (
+    filter_and_complement_mask_list as filter_mask_list,
+)
 import argparse
 from pathlib import Path
 import os
@@ -15,25 +24,13 @@ import numpy as np
 import multiprocessing
 from functools import partial
 import nibabel as ni
-from mialsrtk_utils import get_cropped_stack_based_on_mask
+import shutil
 import json
 
 # Default data path
 DATA_PATH = Path("/media/tsanchez/tsanchez_data/data/data")
 # Default parameters for the parameter sweep
-ALPHAS = [
-    0.001,
-    0.002,
-    0.005,
-    0.01,
-    0.013,
-    0.029,
-    0.068,
-    0.159,
-    0.369,
-    0.86,
-    2.0,
-]  # [0.005, 0.01, 0.02, 0.05, 0.1, 0.5, 1.0]
+ALPHA = 0.068
 # Relative paths in the docker image to various scripts.
 RECON_FROM_SLICES = "NiftyMIC/niftymic_reconstruct_volume_from_slices.py"
 RECONSTRUCTION_PYTHON = (
@@ -57,14 +54,6 @@ def get_atlas_target(recon_path):
 import re
 
 
-def filter_run_list(stacks, run_list):
-    run_dict = {
-        int(re.findall(r"run-(\d+)_", str(file))[-1]): file
-        for file in run_list
-    }
-    return [v for k, v in run_dict.items() if k in stacks]
-
-
 def iterate_subject(
     sub,
     config_sub,
@@ -72,13 +61,9 @@ def iterate_subject(
     data_path,
     output_path,
     masks_folder,
-    alphas,
+    alpha,
     participant_label,
-    skip_recon,
-    skip_param,
     use_preprocessed,
-    use_cropped_input,
-    recon_to_template_space,
     fake_run,
 ):
 
@@ -89,34 +74,28 @@ def iterate_subject(
     if sub not in sub_ses_dict:
         print(f"Subject {sub} not found in {data_path}")
         return
-    sub_dict = sub_ses_dict[sub]
 
-    out_suffix = ""
-
-    if not use_cropped_input:
-        out_suffix += "_uncropped"
-    if use_preprocessed:
-        out_suffix += "_bcorr"
+    out_suffix = "" if not use_preprocessed else "_bcorr"
 
     # Prepare the output path, and locate the
     # pre-computed masks
     output_path = data_path / output_path
+    niftymic_out_path = output_path / "niftymic"
     mask_base_path = data_path / "derivatives" / masks_folder
+
     sub_ses_masks_dict = iter_dir(mask_base_path)
 
     # Pre-processing: mask (and crop) the low-resolution stacks
-    cropped_path_base = output_path / ("preprocess_ebner" + out_suffix)
-    cropped_mask_path_base = output_path / (
+    cropped_path_base = niftymic_out_path / ("preprocess_ebner" + out_suffix)
+    cropped_mask_path_base = niftymic_out_path / (
         "preprocess_mask_ebner" + out_suffix
     )
     # Output for the reconstruction stage
-    recon_path_base = output_path / ("recon_ebner" + out_suffix)
+    recon_path_base = niftymic_out_path / ("recon_ebner" + out_suffix)
 
     # Output for the parameter study.
-    sr_study_path_base = output_path / ("recon_study_ebner" + out_suffix)
     if not fake_run:
-        os.makedirs(output_path, exist_ok=True)
-        os.makedirs(sr_study_path_base, exist_ok=True)
+        os.makedirs(niftymic_out_path, exist_ok=True)
 
     # Format the directory of parameter sweep
     # alphas_str = " ".join([str(a) for a in alphas])
@@ -127,82 +106,70 @@ def iterate_subject(
     for conf in config_sub:
         if "session" not in conf:
             ses = "1"
-            mask_list = sub_ses_masks_dict[sub]
             img_list = sub_ses_dict[sub]
+            mask_list = sub_ses_masks_dict[sub]
+
         else:
             ses = conf["session"]
-            mask_list = sub_ses_masks_dict[sub][ses]
             img_list = sub_ses_dict[sub][ses]
-        stacks = conf["stacks"] if "stacks" in conf else None
+            mask_list = sub_ses_masks_dict[sub][ses]
+
+        stacks = conf["stacks"] if "stacks" in conf else find_run_id(img_list)
         run_id = conf["sr-id"] if "sr-id" in conf else "1"
+
         run_path = f"run-{run_id}"
-        if stacks:
-            mask_list = filter_run_list(stacks, mask_list)
-            img_list = filter_run_list(stacks, img_list)
         ses_path = f"ses-{ses}"
+
+        mask_list, _ = filter_mask_list(stacks, sub, ses, mask_list)
+        img_list = filter_run_list(stacks, img_list)
+
+        sub_ses_anat = f"{sub_path}/{ses_path}/anat"
 
         # Construct the data and mask path from their respective
         # base paths
-        input_path = data_path / sub_path / ses_path / "anat"
-        mask_path = mask_base_path / sub_path / ses_path / "anat"
-        if use_cropped_input:
-            input_cropped_path = (
-                cropped_path_base / sub_path / ses_path / "anat" / run_path
-            )
-            mask_cropped_path = (
-                cropped_mask_path_base
-                / sub_path
-                / ses_path
-                / "anat"
-                / run_path
-            )
-            if not fake_run:
-                os.makedirs(input_cropped_path, exist_ok=True)
-                os.makedirs(mask_cropped_path, exist_ok=True)
+        input_path = data_path / sub_ses_anat
+        mask_path = mask_base_path / sub_ses_anat
+
+        input_cropped_path = cropped_path_base / sub_ses_anat / run_path
+        mask_cropped_path = cropped_mask_path_base / sub_ses_anat / run_path
+        if not fake_run:
+            os.makedirs(input_cropped_path, exist_ok=True)
+            os.makedirs(mask_cropped_path, exist_ok=True)
 
         # Get in-plane resolution to be set as target resolution.
-
         resolution = ni.load(img_list[0]).header["pixdim"][1]
 
         # Construct the path to each data point and mask in
         # the filesystem of the docker image
-        filename_data = []
-        filename_masks = []
-        filename_prepro = []
+        filename_data, filename_masks, filename_prepro = [], [], []
+        boundary_mm = 15
+        crop_path = partial(
+            get_cropped_stack_based_on_mask,
+            boundary_i=boundary_mm,
+            boundary_j=boundary_mm,
+            boundary_k=boundary_mm,
+        )
         for image, mask in zip(img_list, mask_list):
-            if use_cropped_input and not fake_run:
-                # Preprocessing run : crop and mask the low-resolution stacks
-                cropped_im = str(image).replace(
-                    str(input_path), str(input_cropped_path)
-                )
-                cropped_mask = str(mask).replace(
-                    str(mask_path), str(mask_cropped_path)
-                )
 
-                im, m = ni.load(image), ni.load(mask)
-                boundary_mm = 15
-                imc = get_cropped_stack_based_on_mask(
-                    im,
-                    m,
-                    boundary_i=boundary_mm,
-                    boundary_j=boundary_mm,
-                    boundary_k=boundary_mm,
-                )
+            # Preprocessing run : crop and mask the low-resolution stacks
+            cropped_im = str(image).replace(
+                str(input_path), str(input_cropped_path)
+            )
+            cropped_mask = str(mask).replace(
+                str(mask_path), str(mask_cropped_path)
+            )
 
-                maskc = get_cropped_stack_based_on_mask(
-                    m,
-                    m,
-                    boundary_i=boundary_mm,
-                    boundary_j=boundary_mm,
-                    boundary_k=boundary_mm,
-                )
-                # Masking
-                imc = ni.Nifti1Image(
-                    imc.get_fdata() * maskc.get_fdata(), imc.affine
-                )
+            im, m = ni.load(image), ni.load(mask)
 
-                ni.save(imc, cropped_im)
-                ni.save(maskc, cropped_mask)
+            imc = crop_path(im, m)
+            maskc = crop_path(m, m)
+            # Masking
+            imc = ni.Nifti1Image(
+                imc.get_fdata() * maskc.get_fdata(), imc.affine
+            )
+
+            ni.save(imc, cropped_im)
+            ni.save(maskc, cropped_mask)
 
             # Define the file and path names inside the docker volume
             run_im = str(image).replace(str(input_path), "/data")
@@ -219,100 +186,48 @@ def iterate_subject(
         ##
         # Reconstruction stage
         ##
-        recon_path = recon_path_base / sub_path / ses_path / "anat" / run_path
+        recon_path = recon_path_base / sub_ses_anat / run_path
         if not fake_run:
             os.makedirs(recon_path, exist_ok=True)
 
         # Replace input and mask path by preprocessed
-        if use_cropped_input:
-            input_path, mask_path = input_cropped_path, mask_cropped_path
-        if not skip_recon:
-            cmd = (
-                f"docker run -v {input_path}:/data "
-                f"-v {mask_path}:/seg "
-                f"-v {recon_path}:/srr "
-                f"renbem/niftymic python "
-                f"{RECONSTRUCTION_PYTHON} "
-                f"--filenames {filename_data} "
-                f" --filenames-masks {filename_masks}"
-                f" --dir-output /srr"
-                f" --isotropic-resolution {resolution}"
-                f" --suffix-mask _mask"
-            )
-            print(f"RECONSTRUCTION STAGE (PID={pid})")
-            print(cmd)
-            print()
-            if not fake_run:
-                os.system(cmd)
+        input_path, mask_path = input_cropped_path, mask_cropped_path
+        cmd = (
+            f"docker run -v {input_path}:/data "
+            f"-v {mask_path}:/seg "
+            f"-v {recon_path}:/srr "
+            f"renbem/niftymic python "
+            f"{RECONSTRUCTION_PYTHON} "
+            f"--filenames {filename_data} "
+            f" --filenames-masks {filename_masks}"
+            f" --dir-output /srr"
+            f" --isotropic-resolution {resolution}"
+            f" --suffix-mask _mask"
+            f" --alpha {alpha}"
+        )
+        print(f"RECONSTRUCTION STAGE (PID={pid})")
+        print(cmd)
+        print()
+        if not fake_run:
+            os.system(cmd)
+        ## Copy files in BIDS format
 
-        ##
-        # Parameter study
-        ##
+        out_path = output_path / sub_path / ses_path / "anat"
+        os.makedirs(out_path, exist_ok=True)
+        final_rec = (
+            out_path / f"{sub_path}_{ses_path}_{run_path}_SR_T2w.nii.gz"
+        )
+        final_mask = (
+            out_path / f"{sub_path}_{ses_path}_{run_path}_SR_T2w_mask.nii.gz"
+        )
 
-        tikhonov_base = "/home/tsanchez/Documents/mial/repositories/"
-        tikhonov_path = "NiftyMIC/niftymic/reconstruction/tikhonov_solver.py"
-        tikhonov_local = tikhonov_base + tikhonov_path
-        tikhonov_docker = "/app/" + tikhonov_path
-        for alpha in alphas:
-            if not skip_param:
-                alpha_str = str(alpha).replace(".", "p")
-                sr_study_path = (
-                    sr_study_path_base
-                    / sub_path
-                    / ses_path
-                    / f"anat/{run_path}/{alpha_str}"
-                )
-                if not fake_run:
-                    os.makedirs(sr_study_path, exist_ok=True)
-
-                # Path to the motion correction: obtained in the reconstruction
-                # stage
-                file_path = (
-                    filename_prepro if use_preprocessed else filename_data
-                )
-                if recon_to_template_space:
-                    mc_path = "/srr/recon_template_space/motion_correction/"
-                    path = recon_path / "recon_template_space"
-                    if not fake_run:
-                        atlas, target = get_atlas_target(path)
-                    else:
-                        atlas, target = "lorem", "ipsum"
-                else:
-                    mc_path = "/srr/recon_subject_space/motion_correction/"
-                output_sr = (
-                    f"sub-{sub}_ses-{ses}_desc-alpha-{alpha_str}_rec-SR.nii.gz"
-                )
-
-                cmd = (
-                    f"docker run -v {input_path}:/data "
-                    f"-v {tikhonov_local}:{tikhonov_docker} "
-                    f"-v {mask_path}:/seg "
-                    f"-v {recon_path}:/srr "
-                    f"-v {sr_study_path}:/srr_study "
-                    f"renbem/niftymic python "
-                    f"{RECON_FROM_SLICES} "
-                    f"--filenames {file_path} "
-                    f"--filenames-masks {filename_masks} "
-                    f"--output /srr_study/{output_sr} "
-                    f"--dir-input-mc {mc_path} "
-                    "--reconstruction-type TK1L2 "
-                    f"--alpha {alpha} "
-                    f" --isotropic-resolution {resolution}"
-                    f" --suffix-mask _mask"
-                )
-                if recon_to_template_space:
-                    cmd += (
-                        f" --reconstruction-space {atlas} "
-                        f"--target-stack {target} "
-                    )
-
-                print(f"PARAMETER STUDY (PID={pid})")
-                print(f"\tRunning alpha={alpha}")
-                print(cmd)
-                print()
-
-                if not fake_run:
-                    os.system(cmd)
+        shutil.copyfile(
+            recon_path / "recon_template_space/srr_template.nii.gz", final_rec
+        )
+        shutil.copyfile(
+            recon_path / "recon_template_space/srr_template_mask.nii.gz",
+            final_mask,
+        )
 
 
 def main(
@@ -320,13 +235,9 @@ def main(
     config,
     masks_folder,
     out_path,
-    alphas,
+    alpha,
     participant_label,
-    skip_recon,
-    skip_param,
     use_preprocessed,
-    use_cropped_input,
-    recon_to_template_space,
     nprocs,
     fake_run,
 ):
@@ -342,13 +253,9 @@ def main(
         data_path=data_path,
         output_path=out_path,
         masks_folder=masks_folder,
-        alphas=alphas,
+        alpha=alpha,
         participant_label=participant_label,
-        skip_recon=skip_recon,
-        skip_param=skip_param,
         use_preprocessed=use_preprocessed,
-        use_cropped_input=use_cropped_input,
-        recon_to_template_space=recon_to_template_space,
         fake_run=fake_run,
     )
     if nprocs > 1:
@@ -361,7 +268,9 @@ def main(
 
 
 if __name__ == "__main__":
-    p = argparse.ArgumentParser()
+    p = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     p.add_argument(
         "--data_path",
         default=DATA_PATH,
@@ -382,10 +291,9 @@ if __name__ == "__main__":
         "Relative to `<data_path>` (default: `derivatives`)",
     )
     p.add_argument(
-        "--alphas",
-        help="Alphas to be tuned.",
-        default=ALPHAS,
-        nargs="+",
+        "--alpha",
+        help="Alpha to be used.",
+        default=ALPHA,
         type=float,
     )
 
@@ -408,19 +316,6 @@ if __name__ == "__main__":
         help="Number of processes used in parallel",
         type=int,
     )
-    p.add_argument(
-        "--skip_recon",
-        action="store_true",
-        default=False,
-        help="Whether reconstruction should be skipped",
-    )
-
-    p.add_argument(
-        "--skip_param",
-        action="store_true",
-        default=False,
-        help="Whether parameter study should be skipped",
-    )
 
     p.add_argument(
         "--use_preprocessed",
@@ -430,27 +325,6 @@ if __name__ == "__main__":
         "bias corrected images as input.",
     )
 
-    p.add_argument(
-        "--no_cropped_input",
-        action="store_false",
-        dest="use_cropped_input",
-        help="Whether the parameter study should *not* use "
-        "cropped and masked low-resolution images as input.",
-    )
-    p.add_argument(
-        "--use_cropped_input",
-        action="store_true",
-        default=True,
-        help="Whether the parameter study should use "
-        "cropped and masked low-resolution images as input.",
-    )
-    p.add_argument(
-        "--recon_to_template_space",
-        action="store_true",
-        default=False,
-        help="Whether the parameter study should use "
-        "reconstructed in the template space.",
-    )
     p.add_argument(
         "--fake_run",
         action="store_true",
@@ -464,13 +338,9 @@ if __name__ == "__main__":
         config=args.config,
         masks_folder=args.masks_folder,
         out_path=args.out_path,
-        alphas=args.alphas,
+        alpha=args.alpha,
         participant_label=args.participant_label,
-        skip_recon=args.skip_recon,
-        skip_param=args.skip_param,
         use_preprocessed=args.use_preprocessed,
-        use_cropped_input=args.use_cropped_input,
-        recon_to_template_space=args.recon_to_template_space,
         nprocs=args.nprocs,
         fake_run=args.fake_run,
     )

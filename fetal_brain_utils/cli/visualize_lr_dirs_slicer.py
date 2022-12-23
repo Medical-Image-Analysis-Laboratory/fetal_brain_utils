@@ -3,24 +3,9 @@ import tkinter as tk
 import os
 import argparse
 from fetal_brain_qc.utils import csv_to_list
+from fetal_brain_utils.definitions import SLICER_PATH
 from collections import defaultdict
 from functools import partial
-
-SLICER_PATH = "/home/tsanchez/Slicer-5.0.3-linux-amd64/Slicer"
-# SLICER_PATH = "/Applications/Slicer.app/Contents/MacOS/Slicer"
-
-
-def selection_changed(event, files, masks):
-    selection = combo.get()
-
-    cmd = f'{SLICER_PATH} --python-code "'
-    for file, m in zip(files[selection], masks[selection]):
-        cmd += f"slicer.util.loadVolume('{file}');"
-        if "refined_mask" in m:
-            cmd += f"slicer.util.loadLabelVolume('{m}');"
-    cmd += 'slicer.util.setSliceViewerLayers(labelOpacity=0.5);"'
-    print(cmd)
-    os.system(cmd)
 
 
 def get_subject_dict(bids_list):
@@ -32,7 +17,7 @@ def get_subject_dict(bids_list):
     return files_dict, masks_dict
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
@@ -51,9 +36,26 @@ if __name__ == "__main__":
     main_window.config(width=300, height=200)
     main_window.title("Explore BIDS dataset")
     combo = ttk.Combobox(values=values)
+
+    def selection_changed(event, files, masks):
+        selection = combo.get()
+
+        cmd = f'{SLICER_PATH} --python-code "'
+        for file, m in zip(files[selection], masks[selection]):
+            cmd += f"slicer.util.loadVolume('{file}');"
+            if "refined_mask" in m:
+                cmd += f"slicer.util.loadLabelVolume('{m}');"
+        cmd += 'slicer.util.setSliceViewerLayers(labelOpacity=0.5);"'
+        print(cmd)
+        os.system(cmd)
+
     combo.bind(
         "<<ComboboxSelected>>",
         partial(selection_changed, files=files_dict, masks=masks_dict),
     )
     combo.place(x=50, y=50)
     main_window.mainloop()
+
+
+if __name__ == "__main__":
+    main()

@@ -11,19 +11,6 @@ import nibabel as ni
 import os
 from bids.layout.writing import build_path
 
-AUTO_MASK_PATH = "/media/tsanchez/tsanchez_data/data/out_anon/masks"
-OUT_JSON_ORDER = [
-    "sr-id",
-    "session",
-    "ga",
-    "stacks",
-    "use_auto_mask",
-    "config_path",
-    "info",
-    "im_path",
-    "mask_path",
-]
-
 
 def get_mask_path(bids_dir, subject, ses, run):
     """Create the target file path from a given
@@ -347,21 +334,14 @@ def iter_bids(
     suffix="T2w",
     target=None,
     return_type="filename",
-    skip_run=False,
-    return_all=False,
 ):
     """Return a single iterator over the BIDSLayout obtained from
     pybids - flexibly handles cases with and without a session date.
     """
     for sub in sorted(bids_layout.get_subjects()):
         for ses in [None] + sorted(bids_layout.get_sessions(subject=sub)):
-            if skip_run:
-                run_list = [None]
-            else:
-                run_list = sorted(
-                    bids_layout.get_runs(subject=sub, session=ses)
-                )
-            for run in run_list:
+            run_list = sorted(bids_layout.get_runs(subject=sub, session=ses))
+            for run in [None] + run_list:
                 out = bids_layout.get(
                     subject=sub,
                     session=ses,
@@ -372,9 +352,5 @@ def iter_bids(
                     target=target,
                     return_type=return_type,
                 )
-                if return_all:
-                    for o in out:
-                        yield (sub, ses, run, o)
-                else:
-                    if len(out) > 0:
-                        yield (sub, ses, run, out[0])
+                for o in out:
+                    yield (sub, ses, run, o)

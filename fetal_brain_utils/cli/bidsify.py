@@ -7,7 +7,7 @@ import glob
 import gzip
 import shutil
 import csv
-from fetal_brain_qc.utils import nested_defaultdict, iter_bids_dict
+from fetal_brain_utils import nested_defaultdict, iter_bids_dict
 
 
 class BIDSdir:

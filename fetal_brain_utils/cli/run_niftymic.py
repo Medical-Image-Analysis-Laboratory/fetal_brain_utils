@@ -7,16 +7,18 @@ sub-<id>_ses-<id>_desc-iso_mask.nii.gz
 Note that, currently, for simulated data, the brain extraction module
 will crash for reasons that are beyond my understanding.
 """
-from fetal_brain_utils.utils import (
+from fetal_brain_utils import (
     iter_dir,
     get_cropped_stack_based_on_mask,
     filter_run_list,
     find_run_id,
-    OUT_JSON_ORDER,
+    
 )
-from fetal_brain_utils.utils import (
+from fetal_brain_utils import (
     filter_and_complement_mask_list as filter_mask_list,
 )
+
+from fetal_brain_utils.definitions import OUT_JSON_ORDER,
 import argparse
 from pathlib import Path
 import os
@@ -81,7 +83,7 @@ def iterate_subject(
     # Prepare the output path, and locate the
     # pre-computed masks
     output_path = data_path / output_path
-    niftymic_out_path = output_path / "niftymic"
+    niftymic_out_path = output_path / "run_files"
     mask_base_path = data_path / "derivatives" / masks_folder
 
     sub_ses_masks_dict = iter_dir(mask_base_path)
@@ -218,7 +220,18 @@ def iterate_subject(
                 os.system(cmd)
             ## Copy files in BIDS format
 
-            out_path = output_path / sub_path / ses_path / "anat"
+            # Creating the dataset_description file.
+            os.makedirs(output_path / "niftymic", exist_ok=True)
+            dataset_description = {
+                "Name": "CHUV fetal brain MRI",
+                "BIDSVersion": "1.8.0",
+            }
+            with open(
+                output_path / "niftymic" / "dataset_description.json", "w"
+            ) as f:
+                json.dump(dataset_description, f)
+
+            out_path = output_path / "niftymic" / sub_path / ses_path / "anat"
             os.makedirs(out_path, exist_ok=True)
             final_base = str(
                 out_path / f"{sub_path}_{ses_path}_{run_path}_SR_T2w"

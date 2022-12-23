@@ -1,7 +1,8 @@
 """
 Run the NeSVor pipeline on data.
 """
-from fetal_brain_utils.utils import iter_dir, OUT_JSON_ORDER
+from fetal_brain_utils import iter_dir
+from fetal_brain_utils.definitions import OUT_JSON_ORDER
 from bids.layout.writing import build_path
 import argparse
 from pathlib import Path

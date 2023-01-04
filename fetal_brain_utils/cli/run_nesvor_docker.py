@@ -178,24 +178,31 @@ def iterate_subject(
         img_list, mask_list = crop_input(
             sub, ses, output_path_crop, img_list, mask_list
         )
+        mount_base = Path(img_list[0]).parent
+        img_str = " ".join(
+            [str(Path("/data") / Path(im).name) for im in img_list]
+        )
+        mask_str = " ".join(
+            [str(Path("/data") / Path(m).name) for m in mask_list]
+        )
 
-        # Get in-plane resolution to be set as target resolution.
-        img_str = " ".join([str(im) for im in img_list])
-        mask_str = " ".join([str(m) for m in mask_list])
-
-        model = output_sub_ses / f"{sub_path}_{ses_path}_{run_path}_model.pt"
+        out = Path("/out")
+        model = out / f"{sub_path}_{ses_path}_{run_path}_model.pt"
 
         for i, res in enumerate(target_res):
             res_str = str(res).replace(".", "p")
-            output_str = (
-                output_sub_ses / f"{sub_path}_{ses_path}_"
+            out_base = (
+                f"{sub_path}_{ses_path}_"
                 f"acq-haste_res-{res_str}_{run_path}_T2w"
             )
-            output_file = str(output_str) + ".nii.gz"
-            output_json = str(output_str) + ".json"
+            output_file = str(out / out_base) + ".nii.gz"
+            output_json = str(output_sub_ses / out_base) + ".json"
             if i == 0:
                 cmd = (
-                    f"nesvor reconstruct "
+                    f" docker run --gpus '\"device=0\"' "
+                    f"-v {mount_base}:/data "
+                    f"-v {output_sub_ses}:/out "
+                    f"junshenxu/nesvor:v0.1.0 nesvor reconstruct "
                     f"--input-stacks {img_str} "
                     f"--stack-masks {mask_str} "
                     f"--output-volume {output_file} "
@@ -205,7 +212,9 @@ def iterate_subject(
                 )
             else:
                 cmd = (
-                    f"nesvor sample-volume "
+                    f" docker run --gpus '\"device=0\"' "
+                    f"-v {output_sub_ses}:/out "
+                    f"junshenxu/nesvor:v0.1.0 nesvor sample-volume "
                     f"--input-model {model} "
                     f"--output-resolution {res} "
                     f"--output-volume {output_file} "
@@ -219,7 +228,7 @@ def iterate_subject(
                 "command": cmd,
             }
             conf = {k: conf[k] for k in OUT_JSON_ORDER if k in conf.keys()}
-
+            print("OUTOUTUO", output_sub_ses)
             with open(output_json, "w") as f:
                 json.dump(conf, f, indent=4)
             print(cmd)

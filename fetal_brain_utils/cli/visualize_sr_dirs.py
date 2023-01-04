@@ -93,9 +93,10 @@ def main():
     def selection_changed(event, files, namelist=None):
         selection = combo.get()
         cmd = "itksnap "
+        print("Displaying:")
         for i, file in enumerate(files[selection]):
             cmd += f"-g {file} -o " if i == 0 else f"{file} "
-
+            print(f"\t{file}")
         print(cmd)
         os.system(cmd)
 

@@ -73,6 +73,46 @@ def get_atlas_target(recon_path):
     return atlas, target
 
 
+def crop_input(sub, ses, output_path, img_list, mask_list, masking=False):
+    import nibabel as ni
+    from fetal_brain_utils import get_cropped_stack_based_on_mask
+    from functools import partial
+
+    sub_ses_output = output_path / f"sub-{sub}/ses-{ses}/anat"
+    os.makedirs(sub_ses_output, exist_ok=True)
+
+    boundary_mm = 15
+    crop_path = partial(
+        get_cropped_stack_based_on_mask,
+        boundary_i=boundary_mm,
+        boundary_j=boundary_mm,
+        boundary_k=0,
+    )
+    im_list_c, mask_list_c = [], []
+    for image, mask in zip(img_list, mask_list):
+        print(f"Processing {image} {mask}")
+        im_file, mask_file = Path(image).name, Path(mask).name
+        cropped_im_path = sub_ses_output / im_file
+        cropped_mask_path = sub_ses_output / mask_file
+        im, m = ni.load(image), ni.load(mask)
+
+        imc = crop_path(im, m)
+        maskc = crop_path(m, m)
+        # Masking
+        if masking:
+            imc = ni.Nifti1Image(
+                imc.get_fdata() * maskc.get_fdata(), imc.affine
+            )
+        else:
+            imc = ni.Nifti1Image(imc.get_fdata(), imc.affine)
+
+        ni.save(imc, cropped_im_path)
+        ni.save(maskc, cropped_mask_path)
+        im_list_c.append(str(cropped_im_path))
+        mask_list_c.append(str(cropped_mask_path))
+    return im_list_c, mask_list_c
+
+
 def iterate_subject(
     sub,
     config_sub,
@@ -97,7 +137,7 @@ def iterate_subject(
 
     mask_base_path = Path(mask_base_path)
     output_path = Path(output_path)
-
+    output_path_crop = output_path / "cropped_input"
     sub_ses_masks_dict = iter_dir(mask_base_path)
 
     os.makedirs(output_path, exist_ok=True)
@@ -115,6 +155,7 @@ def iterate_subject(
             ses = conf["session"]
             mask_list = sub_ses_masks_dict[sub][ses]
             img_list = sub_ses_dict[sub][ses]
+
         stacks = conf["stacks"] if "stacks" in conf else find_run_id(img_list)
         run_id = conf["sr-id"] if "sr-id" in conf else "1"
         run_path = f"run-{run_id}"
@@ -124,6 +165,11 @@ def iterate_subject(
         )
         mask_list = [str(f) for f in mask_list]
         img_list = [str(f) for f in filter_run_list(stacks, img_list)]
+
+        img_list, mask_list = crop_input(
+            sub, ses, output_path_crop, img_list, mask_list
+        )
+
         conf["use_auto_mask"] = auto_masks
         conf["im_path"] = img_list
         conf["mask_path"] = mask_list

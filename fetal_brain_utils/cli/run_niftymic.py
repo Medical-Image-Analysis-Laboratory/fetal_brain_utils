@@ -12,13 +12,12 @@ from fetal_brain_utils import (
     get_cropped_stack_based_on_mask,
     filter_run_list,
     find_run_id,
-    
 )
 from fetal_brain_utils import (
     filter_and_complement_mask_list as filter_mask_list,
 )
 
-from fetal_brain_utils.definitions import OUT_JSON_ORDER,
+from fetal_brain_utils.definitions import OUT_JSON_ORDER
 import argparse
 from pathlib import Path
 import os
@@ -84,9 +83,8 @@ def iterate_subject(
     # pre-computed masks
     output_path = data_path / output_path
     niftymic_out_path = output_path / "run_files"
-    mask_base_path = data_path / "derivatives" / masks_folder
 
-    sub_ses_masks_dict = iter_dir(mask_base_path)
+    sub_ses_masks_dict = iter_dir(masks_folder)
 
     # Pre-processing: mask (and crop) the low-resolution stacks
     cropped_path_base = niftymic_out_path / ("preprocess_ebner" + out_suffix)
@@ -139,7 +137,7 @@ def iterate_subject(
             # Construct the data and mask path from their respective
             # base paths
             input_path = data_path / sub_ses_anat
-            mask_path = mask_base_path / sub_ses_anat
+            mask_path = masks_folder / sub_ses_anat
 
             input_cropped_path = cropped_path_base / sub_ses_anat / run_path
             mask_cropped_path = (
@@ -267,45 +265,8 @@ def iterate_subject(
                 print(e)
 
 
-def main(
-    data_path,
-    config,
-    masks_folder,
-    out_path,
-    alpha,
-    participant_label,
-    use_preprocessed,
-    nprocs,
-    fake_run,
-):
-    # Load a dictionary of subject-session-paths
-    sub_ses_dict = iter_dir(data_path, add_run_only=True)
+def main():
 
-    with open(data_path / "code" / config, "r") as f:
-        params = json.load(f)
-    # Iterate over all subjects and sessions
-    iterate = partial(
-        iterate_subject,
-        sub_ses_dict=sub_ses_dict,
-        config_path=config,
-        data_path=data_path,
-        output_path=out_path,
-        masks_folder=masks_folder,
-        alpha=alpha,
-        participant_label=participant_label,
-        use_preprocessed=use_preprocessed,
-        fake_run=fake_run,
-    )
-    if nprocs > 1:
-        pool = multiprocessing.Pool(nprocs)
-
-        pool.starmap(iterate, params.items())
-    else:
-        for sub, config_sub in params.items():
-            iterate(sub, config_sub)
-
-
-if __name__ == "__main__":
     p = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
@@ -317,16 +278,14 @@ if __name__ == "__main__":
 
     p.add_argument(
         "--masks_folder",
-        default="masks",
-        help="Folder where the masks are located. "
-        "Relative to `<data_path>/derivatives` (default: `masks`)",
+        required=True,
+        help="Folder where the masks are located.",
     )
 
     p.add_argument(
         "--out_path",
-        default="derivatives",
-        help="Folder where the output will be stored. "
-        "Relative to `<data_path>` (default: `derivatives`)",
+        required=True,
+        help="Folder where the output will be stored.",
     )
     p.add_argument(
         "--alpha",
@@ -337,8 +296,8 @@ if __name__ == "__main__":
 
     p.add_argument(
         "--config",
-        help="Config path in data_path/code (default: `params.json`)",
-        default="params.json",
+        help="Config path.",
+        required=True,
         type=str,
     )
 
@@ -370,15 +329,42 @@ if __name__ == "__main__":
         help="Whether to only print the commands instead of running them",
     )
     args = p.parse_args()
+    data_path = Path(args.data_path)
+    config = Path(args.config)
+    masks_folder = Path(args.masks_folder)
+    out_path = Path(args.out_path)
+    alpha = args.alpha
+    participant_label = args.participant_label
+    use_preprocessed = args.use_preprocessed
+    nprocs = args.nprocs
+    fake_run = args.fake_run
 
-    main(
-        data_path=Path(args.data_path),
-        config=args.config,
-        masks_folder=args.masks_folder,
-        out_path=args.out_path,
-        alpha=args.alpha,
-        participant_label=args.participant_label,
-        use_preprocessed=args.use_preprocessed,
-        nprocs=args.nprocs,
-        fake_run=args.fake_run,
+    # Load a dictionary of subject-session-paths
+    sub_ses_dict = iter_dir(data_path, add_run_only=True)
+
+    with open(config, "r") as f:
+        params = json.load(f)
+    # Iterate over all subjects and sessions
+    iterate = partial(
+        iterate_subject,
+        sub_ses_dict=sub_ses_dict,
+        config_path=config,
+        data_path=data_path,
+        output_path=out_path,
+        masks_folder=masks_folder,
+        alpha=alpha,
+        participant_label=participant_label,
+        use_preprocessed=use_preprocessed,
+        fake_run=fake_run,
     )
+    if nprocs > 1:
+        pool = multiprocessing.Pool(nprocs)
+
+        pool.starmap(iterate, params.items())
+    else:
+        for sub, config_sub in params.items():
+            iterate(sub, config_sub)
+
+
+if __name__ == "__main__":
+    main()

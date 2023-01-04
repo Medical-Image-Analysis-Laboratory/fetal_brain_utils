@@ -10,6 +10,7 @@ import numpy as np
 import nibabel as ni
 import os
 from bids.layout.writing import build_path
+from .definitions import AUTO_MASK_PATH
 
 
 def get_mask_path(bids_dir, subject, ses, run):

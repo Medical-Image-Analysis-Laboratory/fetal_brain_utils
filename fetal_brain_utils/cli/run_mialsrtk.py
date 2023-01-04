@@ -1,3 +1,116 @@
+def edit_output_json(
+    out_folder, config, cmd, auto_dict, participant_label=None
+):
+    import json
+
+    OUT_JSON_ORDER = ["sr-id", "session", "ga", "stacks"]
+
+    with open(config, "r") as f:
+        config_data = json.load(f)
+    for sub, sub_list in config_data.items():
+        sub_path = f"sub-{sub}"
+        if participant_label:
+            if sub not in participant_label:
+                continue
+        for sub_ses_dict in sub_list:
+
+            ses, run_id = sub_ses_dict["session"], sub_ses_dict["sr-id"]
+            ses_path = f"ses-{ses}"
+            output_sub_ses = out_folder / sub_path / ses_path / "anat"
+            out_json = (
+                output_sub_ses
+                / f"{sub_path}_{ses_path}_rec-SR_id-{run_id}_T2w.json"
+            )
+            print(out_json)
+
+            with open(out_json, "r") as f:
+                mialsrtk_data = json.load(f)
+            if (
+                "sr-id" in mialsrtk_data.keys()
+                and "session" in mialsrtk_data.keys()
+            ):
+                raise RuntimeError(
+                    f"The json metadata have already been modified in {out_json}. Aborting."
+                )
+            print(sub_ses_dict)
+            conf = {k: sub_ses_dict[k] for k in OUT_JSON_ORDER}
+            conf["sr-id"] = run_id
+            conf["config_path"] = str(config)
+            if auto_dict:
+                conf["use_auto_mask"] = auto_dict[sub][ses]
+            custom_key = "custom_interfaces"
+            custom_interfaces = (
+                sub_ses_dict[custom_key]
+                if custom_key in sub_ses_dict.keys()
+                else {}
+            )
+            conf["info"] = {
+                "reconstruction": "mialSRTK",
+                "desc": mialsrtk_data["Description"],
+                "recon_data": mialsrtk_data["CustomMetaData"],
+                "custom_interfaces": custom_interfaces,
+                "stacks_ordered": mialsrtk_data["Input sources run order"],
+                "command": cmd,
+            }
+            with open(out_json, "w") as f:
+                json.dump(conf, f, indent=4)
+
+
+def find_and_copy_masks(config, masks_src, masks_dest):
+    import json
+    from fetal_brain_utils import filter_and_complement_mask_list
+    from fetal_brain_utils import iter_dir
+    from collections import defaultdict
+    import os
+    import shutil
+    from pathlib import Path
+
+    masks_dict = iter_dir(masks_src)
+    auto_dict = defaultdict(dict)
+    with open(config, "r") as f:
+        config_data = json.load(f)
+    for sub, sub_list in config_data.items():
+        sub_path = f"sub-{sub}"
+        for sub_ses_dict in sub_list:
+            stacks = sub_ses_dict["stacks"]
+            ses = sub_ses_dict["session"]
+            ses_path = f"ses-{ses}"
+            mask_list = masks_dict[sub][ses]
+            mask_list, auto_masks = filter_and_complement_mask_list(
+                stacks, sub, ses, mask_list
+            )
+            auto_dict[sub][ses] = auto_masks
+            output_sub_ses = Path(masks_dest / sub_path / ses_path / "anat")
+            os.makedirs(output_sub_ses, exist_ok=True)
+            for m in mask_list:
+                shutil.copy(m, output_sub_ses / Path(m).name)
+    return auto_dict
+
+
+def merge_and_overwrite_folder(src, dest):
+    """
+    Based on https://stackoverflow.com/questions/22588225/how-do-you-merge-two-directories-or-move-with-replace-from-the-windows-command
+    Moves files recursively from a src folder to a dest folder, overwriting existing
+    files and deleting empty directory after files have been moved.
+    """
+    import os
+    import shutil
+
+    os.makedirs(dest, exist_ok=True)
+
+    for path, dirs, files in os.walk(src):
+        relPath = os.path.relpath(path, src)
+        destPath = os.path.join(dest, relPath)
+        os.makedirs(destPath, exist_ok=True)
+        for file in files:
+            shutil.move(os.path.join(path, file), os.path.join(destPath, file))
+        for dirname in dirs:
+            merge_and_overwrite_folder(
+                os.path.join(path, dirname), os.path.join(dest, dirname)
+            )
+        os.rmdir(path)
+
+
 def main():
 
     import os
@@ -6,13 +119,14 @@ def main():
     import argparse
     import sys
 
-    DOCKER_VERSION = "v2.1.0-dev"
     OUTPUT_BASE = Path("/media/tsanchez/tsanchez_data/data/derivatives")
     PYMIALSRTK_PATH = (
         "/home/tsanchez/Documents/mial/"
         "repositories/mialsuperresolutiontoolkit/pymialsrtk"
     )
-    JSON_BASE = Path("/bids_dir/code/")
+    DOCKER_VERSION = "v2.1.0-dev"
+
+    JSON_BASE = Path("/code/")
     PATH_TO_ATLAS = "/media/tsanchez/tsanchez_data/data/atlas"
     DATA_PATH = Path("/media/tsanchez/tsanchez_data/data/data")
 
@@ -89,9 +203,16 @@ def main():
         default=False,
         help="Whether the python folder should not be mounted.",
     )
+
+    p.add_argument(
+        "--complement_missing_masks",
+        action="store_true",
+        default=False,
+        help="Whether missing masks should be replaced with automated masks.",
+    )
     args = p.parse_args()
 
-    data_path = Path(args.data_path)
+    data_path = Path(args.data_path).absolute()
     docker_version = args.docker_version
     run_type = args.run_type
     participant_label = args.participant_label
@@ -101,6 +222,12 @@ def main():
     out_folder = args.out_folder
     masks_derivatives_dir = args.masks_derivatives_dir
     labels_derivatives_dir = args.labels_derivatives_dir
+    complement_missing_masks = args.complement_missing_masks
+    if masks_derivatives_dir:
+        masks_derivatives_dir = Path(masks_derivatives_dir).absolute()
+    if labels_derivatives_dir:
+        labels_derivatives_dir = Path(labels_derivatives_dir).absolute()
+
     pymialsrtk_path = args.pymialsrtk_path
     verbose = args.verbose
     no_python_mount = args.no_python_mount
@@ -118,18 +245,39 @@ def main():
             "defined when automated=False."
         )
     masks_derivatives_dir = None if automated else masks_derivatives_dir
+
     if not out_folder:
         out_folder = f"derivatives/{run_type}_{mask_str}"
         out_folder = data_path / out_folder
+    out_folder = Path(out_folder).absolute()
     os.makedirs(out_folder, exist_ok=True)
+    auto_dict = None
+    if complement_missing_masks:
+        assert (
+            masks_derivatives_dir is not None,
+            "Cannot use --complement_missing_masks if masks_derivatives_dir is None",
+        )
+
+        auto_dict = find_and_copy_masks(
+            param_file,
+            masks_derivatives_dir,
+            out_folder / "masks",
+        )
+        masks_derivatives_dir = out_folder / "masks"
+        print(auto_dict)
 
     if param_file:
-        subject_json = JSON_BASE / param_file
+        param_file = Path(param_file).absolute()
+        subject_json = Path("/code/") / param_file.name
     else:
         if automated:
-            subject_json = JSON_BASE / "automated_preprocessing_config.json"
+            subject_json = (
+                Path("/bids_dir/code/") / "automated_preprocessing_config.json"
+            )
         else:
-            subject_json = JSON_BASE / "manual_preprocessing_config.json"
+            subject_json = (
+                Path("/bids_dir/code/") / "manual_preprocessing_config.json"
+            )
 
     base_command = (
         f"docker run --rm -t -u $(id -u):$(id -g)"
@@ -145,6 +293,9 @@ def main():
         base_command += f" -v {masks_derivatives_dir}:/masks"
     if labels_derivatives_dir is not None:
         base_command += f" -v {labels_derivatives_dir}:/labels"
+    if param_file:
+        print(param_file.parent.absolute())
+        base_command += f" -v {param_file.parent}:/code"
     base_command += (
         f" -v {PATH_TO_ATLAS}:/sta"
         f" sebastientourbier/mialsuperresolutiontoolkit-"
@@ -172,6 +323,20 @@ def main():
     print(base_command)
     os.system(base_command)
     print(f"Total elapsed time: {time.time()-time_base}")
+    out_final = out_folder / f"{out_folder.name}"
+
+    # Renaming the pymialsrtk output to a folder with the same name as the output folder.
+    merge_and_overwrite_folder(
+        out_folder / f"pymialsrtk-{DOCKER_VERSION[1:]}", out_final
+    )
+
+    edit_output_json(
+        out_final,
+        param_file.absolute(),
+        base_command,
+        auto_dict,
+        participant_label,
+    )
 
 
 if __name__ == "__main__":

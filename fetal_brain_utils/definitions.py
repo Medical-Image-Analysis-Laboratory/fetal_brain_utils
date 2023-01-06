@@ -11,3 +11,7 @@ OUT_JSON_ORDER = [
     "mask_path",
 ]
 SLICER_PATH = "/home/tsanchez/Slicer-5.0.3-linux-amd64/Slicer"
+PATTERN = (
+    "/sub-{subject}[/ses-{session}][/{datatype}]/sub-{subject}"
+    "[_ses-{session}][_acq-{acquisition}][_run-{run}]_{suffix}.{extension}"
+)

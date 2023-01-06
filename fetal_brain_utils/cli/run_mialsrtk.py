@@ -2,6 +2,7 @@ def edit_output_json(
     out_folder, config, cmd, auto_dict, participant_label=None
 ):
     import json
+    import os
 
     OUT_JSON_ORDER = ["sr-id", "session", "ga", "stacks"]
 
@@ -21,8 +22,9 @@ def edit_output_json(
                 output_sub_ses
                 / f"{sub_path}_{ses_path}_rec-SR_id-{run_id}_T2w.json"
             )
-            print(out_json)
-
+            if not os.path.exists(out_json):
+                print(f"Warning: {out_json} not found.")
+                continue
             with open(out_json, "r") as f:
                 mialsrtk_data = json.load(f)
             if (
@@ -32,8 +34,11 @@ def edit_output_json(
                 raise RuntimeError(
                     f"The json metadata have already been modified in {out_json}. Aborting."
                 )
-            print(sub_ses_dict)
-            conf = {k: sub_ses_dict[k] for k in OUT_JSON_ORDER}
+            conf = {
+                k: sub_ses_dict[k]
+                for k in OUT_JSON_ORDER
+                if k in sub_ses_dict.keys()
+            }
             conf["sr-id"] = run_id
             conf["config_path"] = str(config)
             if auto_dict:
@@ -95,6 +100,7 @@ def merge_and_overwrite_folder(src, dest):
     """
     import os
     import shutil
+    import glob
 
     os.makedirs(dest, exist_ok=True)
 

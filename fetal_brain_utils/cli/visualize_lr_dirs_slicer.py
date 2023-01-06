@@ -2,7 +2,7 @@ from tkinter import ttk
 import tkinter as tk
 import os
 import argparse
-from fetal_brain_qc.utils import csv_to_list
+from fetal_brain_utils.utils import csv_to_list
 from fetal_brain_utils.definitions import SLICER_PATH
 from collections import defaultdict
 from functools import partial

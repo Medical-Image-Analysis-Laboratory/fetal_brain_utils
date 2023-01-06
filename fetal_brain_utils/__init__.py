@@ -8,6 +8,7 @@ from .utils import (
     iter_bids_dict,
     iter_dir,
     iter_bids,
+    print_title,
 )
 
 from .cropping import (

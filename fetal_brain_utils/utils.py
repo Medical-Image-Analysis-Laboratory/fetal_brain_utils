@@ -100,6 +100,14 @@ def csv_to_list(csv_path):
     return file_list
 
 
+def print_title(text):
+    terminal_size = os.get_terminal_size().columns
+    dashes_length = min(len(text) + 10, terminal_size)
+    dashes = ("-" * dashes_length).center(terminal_size)
+    text = text.upper().center(terminal_size)
+    print("\n" + dashes + "\n" + text + "\n" + dashes + "\n")
+
+
 ###########################################################
 #   Iterate through a directory or a BIDS layout.
 # 1. iter_dir: Iterate a BIDS-like directory and constructs

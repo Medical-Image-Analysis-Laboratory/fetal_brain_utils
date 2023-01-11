@@ -14,26 +14,33 @@ def edit_output_json(
             if sub not in participant_label:
                 continue
         for sub_ses_dict in sub_list:
-
-            ses, run_id = sub_ses_dict["session"], sub_ses_dict["sr-id"]
-            ses_path = f"ses-{ses}"
-            output_sub_ses = out_folder / sub_path / ses_path / "anat"
-            out_json = (
-                output_sub_ses
-                / f"{sub_path}_{ses_path}_rec-SR_id-{run_id}_T2w.json"
-            )
+            if "session" in sub_ses_dict.keys():
+                ses, run_id = sub_ses_dict["session"], sub_ses_dict["sr-id"]
+                ses_path = f"ses-{ses}"
+                output_sub_ses = out_folder / sub_path / ses_path / "anat"
+                out_json = (
+                    output_sub_ses
+                    / f"{sub_path}_{ses_path}_rec-SR_id-{run_id}_T2w.json"
+                )
+            else:
+                run_id = sub_ses_dict["sr-id"]
+                output_sub_ses = out_folder / sub_path / "anat"
+                out_json = (
+                    output_sub_ses / f"{sub_path}_rec-SR_id-{run_id}_T2w.json"
+                )
+            print(out_json)
             if not os.path.exists(out_json):
                 print(f"Warning: {out_json} not found.")
                 continue
             with open(out_json, "r") as f:
                 mialsrtk_data = json.load(f)
-            if (
-                "sr-id" in mialsrtk_data.keys()
-                and "session" in mialsrtk_data.keys()
-            ):
-                raise RuntimeError(
-                    f"The json metadata have already been modified in {out_json}. Aborting."
-                )
+            # if (
+            #     "sr-id" in mialsrtk_data.keys()
+            #     and "session" in mialsrtk_data.keys()
+            # ):
+            #     raise RuntimeError(
+            #         f"The json metadata have already been modified in {out_json}. Aborting."
+            #     )
             conf = {
                 k: sub_ses_dict[k]
                 for k in OUT_JSON_ORDER
@@ -41,6 +48,11 @@ def edit_output_json(
             }
             conf["sr-id"] = run_id
             conf["config_path"] = str(config)
+            conf["Description"] = mialsrtk_data["Description"]
+            conf["CustomMetaData"] = mialsrtk_data["CustomMetaData"]
+            conf["Input sources run order"] = mialsrtk_data[
+                "Input sources run order"
+            ]
             if auto_dict:
                 conf["use_auto_mask"] = auto_dict[sub][ses]
             custom_key = "custom_interfaces"
@@ -51,10 +63,7 @@ def edit_output_json(
             )
             conf["info"] = {
                 "reconstruction": "mialSRTK",
-                "desc": mialsrtk_data["Description"],
-                "recon_data": mialsrtk_data["CustomMetaData"],
                 "custom_interfaces": custom_interfaces,
-                "stacks_ordered": mialsrtk_data["Input sources run order"],
                 "command": cmd,
             }
             with open(out_json, "w") as f:

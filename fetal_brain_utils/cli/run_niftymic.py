@@ -27,6 +27,8 @@ from functools import partial
 import nibabel as ni
 import shutil
 import json
+import traceback
+from bids import BIDSLayout
 
 # Default data path
 DATA_PATH = Path("/media/tsanchez/tsanchez_data/data/data")
@@ -59,7 +61,7 @@ def iterate_subject(
     sub,
     config_sub,
     config_path,
-    sub_ses_dict,
+    bids_layout,
     data_path,
     output_path,
     masks_folder,
@@ -73,7 +75,7 @@ def iterate_subject(
     if participant_label:
         if sub not in participant_label:
             return
-    if sub not in sub_ses_dict:
+    if sub not in bids_layout.get_subjects():
         print(f"Subject {sub} not found in {data_path}")
         return
 
@@ -84,8 +86,7 @@ def iterate_subject(
     output_path = data_path / output_path
     niftymic_out_path = output_path / "run_files"
 
-    sub_ses_masks_dict = iter_dir(masks_folder)
-
+    masks_layout = BIDSLayout(masks_folder, validate=False)
     # Pre-processing: mask (and crop) the low-resolution stacks
     cropped_path_base = niftymic_out_path / ("preprocess_ebner" + out_suffix)
     cropped_mask_path_base = niftymic_out_path / (
@@ -104,17 +105,22 @@ def iterate_subject(
     if not isinstance(config_sub, list):
         config_sub = [config_sub]
     failure_list = []
+
     for conf in config_sub:
         try:
-            if "session" not in conf:
-                ses = "1"
-                img_list = sub_ses_dict[sub]
-                mask_list = sub_ses_masks_dict[sub]
-
-            else:
-                ses = conf["session"]
-                img_list = sub_ses_dict[sub][ses]
-                mask_list = sub_ses_masks_dict[sub][ses]
+            ses = conf["session"] if "session" in conf else None
+            img_list = bids_layout.get_runs(
+                subject=sub,
+                session=ses,
+                extension="nii.gz",
+                return_type="filename",
+            )
+            mask_list = masks_layout.get_runs(
+                subject=sub,
+                session=ses,
+                extension="nii.gz",
+                return_type="filename",
+            )
 
             stacks = (
                 conf["stacks"] if "stacks" in conf else find_run_id(img_list)
@@ -122,7 +128,7 @@ def iterate_subject(
             run_id = conf["sr-id"] if "sr-id" in conf else "1"
 
             run_path = f"run-{run_id}"
-            ses_path = f"ses-{ses}"
+            ses_path = f"ses-{ses}" if ses is not None else ""
 
             mask_list, auto_masks = filter_mask_list(
                 stacks, sub, ses, mask_list
@@ -132,7 +138,10 @@ def iterate_subject(
             conf["im_path"] = img_list
             conf["mask_path"] = mask_list
             conf["config_path"] = str(config_path)
-            sub_ses_anat = f"{sub_path}/{ses_path}/anat"
+            if ses_path != "":
+                sub_ses_anat = f"{sub_path}/{ses_path}/anat"
+            else:
+                sub_ses_anat = f"{sub_path}/anat"
 
             # Construct the data and mask path from their respective
             # base paths
@@ -166,7 +175,6 @@ def iterate_subject(
                 cropped_im = input_cropped_path / im_file
                 cropped_mask = mask_cropped_path / mask_file
                 im, m = ni.load(image), ni.load(mask)
-
                 imc = crop_path(im, m)
                 maskc = crop_path(m, m)
                 # Masking
@@ -255,8 +263,8 @@ def iterate_subject(
             conf = {k: conf[k] for k in OUT_JSON_ORDER}
             with open(final_rec_json, "w") as f:
                 json.dump(conf, f, indent=4)
-        except Exception as e:
-            msg = f"{sub_path} - {ses_path} failed: {e}"
+        except:
+            msg = f"{sub_path} - {ses_path} failed:\n{traceback.format_exc()}"
             print(msg)
             failure_list.append(msg)
         if len(failure_list) > 0:
@@ -329,10 +337,10 @@ def main():
         help="Whether to only print the commands instead of running them",
     )
     args = p.parse_args()
-    data_path = Path(args.data_path)
-    config = Path(args.config)
-    masks_folder = Path(args.masks_folder)
-    out_path = Path(args.out_path)
+    data_path = Path(args.data_path).resolve()
+    config = Path(args.config).resolve()
+    masks_folder = Path(args.masks_folder).resolve()
+    out_path = Path(args.out_path).resolve()
     alpha = args.alpha
     participant_label = args.participant_label
     use_preprocessed = args.use_preprocessed
@@ -340,14 +348,16 @@ def main():
     fake_run = args.fake_run
 
     # Load a dictionary of subject-session-paths
-    sub_ses_dict = iter_dir(data_path, add_run_only=True)
+    # sub_ses_dict = iter_dir(data_path, add_run_only=True)
+
+    bids_layout = BIDSLayout(data_path, validate=True)
 
     with open(config, "r") as f:
         params = json.load(f)
     # Iterate over all subjects and sessions
     iterate = partial(
         iterate_subject,
-        sub_ses_dict=sub_ses_dict,
+        bids_layout=bids_layout,
         config_path=config,
         data_path=data_path,
         output_path=out_path,

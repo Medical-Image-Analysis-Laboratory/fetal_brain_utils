@@ -10,6 +10,7 @@ import os
 from functools import partial
 import json
 import re
+from bids import BIDSLayout
 
 # Default data path
 DATA_PATH = Path("/media/tsanchez/tsanchez_data/data/data")
@@ -118,7 +119,7 @@ def crop_input(sub, ses, output_path, img_list, mask_list):
 def iterate_subject(
     sub,
     config_sub,
-    sub_ses_dict,
+    bids_layout,
     data_path,
     output_path,
     mask_base_path,
@@ -131,15 +132,13 @@ def iterate_subject(
     if participant_label:
         if sub not in participant_label:
             return
-    if sub not in sub_ses_dict:
+    if sub not in bids_layout.get_subjects():
         print(f"Subject {sub} not found in {data_path}")
         return
 
-    mask_base_path = Path(mask_base_path)
-    output_path = Path(output_path)
     output_path_crop = output_path / "cropped_input"
     output_path = output_path / "nesvor"
-    sub_ses_masks_dict = iter_dir(mask_base_path)
+    masks_layout = BIDSLayout(mask_base_path, validate=False)
 
     os.makedirs(output_path, exist_ok=True)
 
@@ -148,14 +147,19 @@ def iterate_subject(
         config_sub = [config_sub]
 
     for conf in config_sub:
-        if "session" not in conf:
-            ses = "01"
-            mask_list = sub_ses_masks_dict[sub]
-            img_list = sub_ses_dict[sub]
-        else:
-            ses = conf["session"]
-            mask_list = sub_ses_masks_dict[sub][ses]
-            img_list = sub_ses_dict[sub][ses]
+        ses = conf["session"] if "session" in conf else None
+        img_list = bids_layout.get_runs(
+            subject=sub,
+            session=ses,
+            extension="nii.gz",
+            return_type="filename",
+        )
+        mask_list = masks_layout.get_runs(
+            subject=sub,
+            session=ses,
+            extension="nii.gz",
+            return_type="filename",
+        )
         stacks = conf["stacks"] if "stacks" in conf else find_run_id(img_list)
         run_id = conf["sr-id"] if "sr-id" in conf else "1"
         run_path = f"run-{run_id}"
@@ -169,10 +173,14 @@ def iterate_subject(
         conf["im_path"] = img_list
         conf["mask_path"] = mask_list
         conf["config_path"] = str(config)
-        ses_path = f"ses-{ses}"
+        ses_path = f"ses-{ses}" if ses else None
+        sub_ses_path = sub_path + f"_ses-{ses}" if ses else sub_path
         # Construct the data and mask path from their respective
         # base paths
-        output_sub_ses = output_path / sub_path / ses_path / "anat"
+        if ses:
+            output_sub_ses = output_path / sub_path / ses_path / "anat"
+        else:
+            output_sub_ses = output_path / sub_path / "anat"
         os.makedirs(output_sub_ses, exist_ok=True)
 
         img_list, mask_list = crop_input(
@@ -182,13 +190,12 @@ def iterate_subject(
         # Get in-plane resolution to be set as target resolution.
         img_str = " ".join([str(im) for im in img_list])
         mask_str = " ".join([str(m) for m in mask_list])
-
-        model = output_sub_ses / f"{sub_path}_{ses_path}_{run_path}_model.pt"
+        model = output_sub_ses / f"{sub_ses_path}_{run_path}_model.pt"
 
         for i, res in enumerate(target_res):
             res_str = str(res).replace(".", "p")
             output_str = (
-                output_sub_ses / f"{sub_path}_{ses_path}_"
+                output_sub_ses / f"{sub_ses_path}_"
                 f"acq-haste_res-{res_str}_{run_path}_T2w"
             )
             output_file = str(output_str) + ".nii.gz"
@@ -274,21 +281,23 @@ def main():
     )
     args = p.parse_args()
 
-    data_path = Path(args.data_path)
-    config = args.config
+    data_path = Path(args.data_path).resolve()
+    config = Path(args.config).resolve()
+    masks_folder = Path(args.masks_folder).resolve()
+    out_path = Path(args.out_path).resolve()
 
     # Load a dictionary of subject-session-paths
-    sub_ses_dict = iter_dir(data_path, add_run_only=True)
-
+    # sub_ses_dict = iter_dir(data_path, add_run_only=True)
+    bids_layout = BIDSLayout(data_path, validate=True)
     with open(data_path / "code" / config, "r") as f:
         params = json.load(f)
     # Iterate over all subjects and sessions
     iterate = partial(
         iterate_subject,
-        sub_ses_dict=sub_ses_dict,
+        bids_layout=bids_layout,
         data_path=data_path,
-        output_path=args.out_path,
-        mask_base_path=args.masks_folder,
+        output_path=out_path,
+        mask_base_path=masks_folder,
         participant_label=args.participant_label,
         target_res=args.target_res,
         config=config,

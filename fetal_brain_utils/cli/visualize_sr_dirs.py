@@ -26,9 +26,9 @@ def build_sub_ses_dict(layout_list):
     # List of unique (sub,ses) pairs
     sub_ses_list = []
     # Iterate the first dict to list all relevant (sub,ses) pairs.
-    for run in iter_bids(
-        layout_list[0]
-    ):  # Currently, it will look at SR with run-ids, but we can skip it also with skip_run=True and return_all=True. I should make something that is more generic to handle this.
+    for run in iter_bids(layout_list[0]):
+        # Currently, it will look at SR with run-ids, but we can skip it also with skip_run=True
+        # and return_all=True. I should make something that is more generic to handle this.
         sub, ses, _, path = run
         if (sub, ses) not in sub_ses_list:
             sub_ses_list.append((sub, ses))
@@ -79,10 +79,10 @@ def main():
     # it will go all the way down niftymic, which should be ignored. However, with validation=True, it
     # returns nothing because the file_names are not BIDS compliant.)
     layout_list = [BIDSLayout(dir, validate=False) for dir in args.bids_dir]
-    sub_ses_dict = defaultdict(list)
-    name_dict = defaultdict(list)
 
     sub_ses_dict, name_dict = build_sub_ses_dict(layout_list)
+    for k, v in sub_ses_dict.items():
+        print(f"{k}:{len(v)} volumes to be displayed.")
     values = list(sub_ses_dict.keys())
     main_window = tk.Tk()
     main_window.config(width=300, height=200)

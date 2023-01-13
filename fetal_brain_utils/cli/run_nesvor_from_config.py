@@ -11,6 +11,7 @@ from functools import partial
 import json
 import re
 from bids import BIDSLayout
+import nibabel as ni
 
 # Default data path
 DATA_PATH = Path("/media/tsanchez/tsanchez_data/data/data")
@@ -219,6 +220,19 @@ def iterate_subject(
                     f"--output-resolution {res} "
                     f"--inference-batch-size 16384"
                 )
+
+            print(cmd)
+            os.system(cmd)
+
+            # Transform the affine of the sr reconstruction
+            sr = ni.load(output_file)
+            affine = sr.affine[[2, 1, 0, 3]]
+            affine[1, :] *= -1
+            ni.save(
+                ni.Nifti1Image(sr.get_fdata()[:, :, :], affine, sr.header),
+                output_file,
+            )
+
             conf["info"] = {
                 "reconstruction": "NeSVoR",
                 "res": res,
@@ -229,8 +243,6 @@ def iterate_subject(
 
             with open(output_json, "w") as f:
                 json.dump(conf, f, indent=4)
-            print(cmd)
-            os.system(cmd)
 
 
 def main():

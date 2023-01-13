@@ -260,7 +260,7 @@ def iterate_subject(
                 "alpha": alpha,
                 "command": cmd,
             }
-            conf = {k: conf[k] for k in OUT_JSON_ORDER}
+            conf = {k: conf[k] for k in OUT_JSON_ORDER if k in conf.keys()}
             with open(final_rec_json, "w") as f:
                 json.dump(conf, f, indent=4)
         except:

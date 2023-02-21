@@ -283,7 +283,9 @@ def main():
     )
     args = p.parse_args()
 
-    data_path = Path(args.data_path)
+    data_path = Path(args.data_path).resolve()
+    out_path = Path(args.out_path).resolve()
+    masks_folder = Path(args.masks_folder).resolve()
     config = args.config
 
     # Load a dictionary of subject-session-paths
@@ -296,8 +298,8 @@ def main():
         iterate_subject,
         sub_ses_dict=sub_ses_dict,
         data_path=data_path,
-        output_path=args.out_path,
-        mask_base_path=args.masks_folder,
+        output_path=out_path,
+        mask_base_path=masks_folder,
         participant_label=args.participant_label,
         target_res=args.target_res,
         config=config,

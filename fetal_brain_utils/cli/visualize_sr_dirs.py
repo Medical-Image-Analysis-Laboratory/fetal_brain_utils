@@ -81,8 +81,11 @@ def main():
     layout_list = [BIDSLayout(dir, validate=False) for dir in args.bids_dir]
 
     sub_ses_dict, name_dict = build_sub_ses_dict(layout_list)
+    total = 0
     for k, v in sub_ses_dict.items():
         print(f"{k}:{len(v)} volumes to be displayed.")
+        total += len(v)
+    print(f"Grand total: {total}")
     values = list(sub_ses_dict.keys())
     main_window = tk.Tk()
     main_window.config(width=300, height=200)

@@ -13,6 +13,10 @@ import re
 from bids import BIDSLayout
 import nibabel as ni
 
+# Only use device_id=1 (device_id=0 not very efficient)
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ['MKL_THREADING_LAYER'] = 'GNU'
+
 # Default data path
 DATA_PATH = Path("/media/tsanchez/tsanchez_data/data/data")
 AUTO_MASK_PATH = "/media/tsanchez/tsanchez_data/data/out_anon/masks"
@@ -294,7 +298,7 @@ def main():
     args = p.parse_args()
 
     data_path = Path(args.data_path).resolve()
-    config = Path(args.config).resolve()
+    config = Path(args.config)
     masks_folder = Path(args.masks_folder).resolve()
     out_path = Path(args.out_path).resolve()
 

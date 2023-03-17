@@ -1,4 +1,4 @@
-me: pydevtips
+name: fetal_brain_utils 
 
 # on: [push, pull_request]
 on:

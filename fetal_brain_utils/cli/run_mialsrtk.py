@@ -1,6 +1,4 @@
-def edit_output_json(
-    out_folder, config, cmd, auto_dict, participant_label=None
-):
+def edit_output_json(out_folder, config, cmd, auto_dict, participant_label=None):
     import json
     import os
 
@@ -18,16 +16,11 @@ def edit_output_json(
                 ses, run_id = sub_ses_dict["session"], sub_ses_dict["sr-id"]
                 ses_path = f"ses-{ses}"
                 output_sub_ses = out_folder / sub_path / ses_path / "anat"
-                out_json = (
-                    output_sub_ses
-                    / f"{sub_path}_{ses_path}_rec-SR_id-{run_id}_T2w.json"
-                )
+                out_json = output_sub_ses / f"{sub_path}_{ses_path}_rec-SR_id-{run_id}_T2w.json"
             else:
                 run_id = sub_ses_dict["sr-id"]
                 output_sub_ses = out_folder / sub_path / "anat"
-                out_json = (
-                    output_sub_ses / f"{sub_path}_rec-SR_id-{run_id}_T2w.json"
-                )
+                out_json = output_sub_ses / f"{sub_path}_rec-SR_id-{run_id}_T2w.json"
             print(out_json)
             if not os.path.exists(out_json):
                 print(f"Warning: {out_json} not found.")
@@ -41,25 +34,17 @@ def edit_output_json(
             #     raise RuntimeError(
             #         f"The json metadata have already been modified in {out_json}. Aborting."
             #     )
-            conf = {
-                k: sub_ses_dict[k]
-                for k in OUT_JSON_ORDER
-                if k in sub_ses_dict.keys()
-            }
+            conf = {k: sub_ses_dict[k] for k in OUT_JSON_ORDER if k in sub_ses_dict.keys()}
             conf["sr-id"] = run_id
             conf["config_path"] = str(config)
             conf["Description"] = mialsrtk_data["Description"]
             conf["CustomMetaData"] = mialsrtk_data["CustomMetaData"]
-            conf["Input sources run order"] = mialsrtk_data[
-                "Input sources run order"
-            ]
+            conf["Input sources run order"] = mialsrtk_data["Input sources run order"]
             if auto_dict:
                 conf["use_auto_mask"] = auto_dict[sub][ses]
             custom_key = "custom_interfaces"
             custom_interfaces = (
-                sub_ses_dict[custom_key]
-                if custom_key in sub_ses_dict.keys()
-                else {}
+                sub_ses_dict[custom_key] if custom_key in sub_ses_dict.keys() else {}
             )
             conf["info"] = {
                 "reconstruction": "mialSRTK",
@@ -90,9 +75,7 @@ def find_and_copy_masks(config, masks_src, masks_dest):
             ses = sub_ses_dict["session"]
             ses_path = f"ses-{ses}"
             mask_list = masks_dict[sub][ses]
-            mask_list, auto_masks = filter_and_complement_mask_list(
-                stacks, sub, ses, mask_list
-            )
+            mask_list, auto_masks = filter_and_complement_mask_list(stacks, sub, ses, mask_list)
             auto_dict[sub][ses] = auto_masks
             output_sub_ses = Path(masks_dest / sub_path / ses_path / "anat")
             os.makedirs(output_sub_ses, exist_ok=True)
@@ -120,9 +103,7 @@ def merge_and_overwrite_folder(src, dest):
         for file in files:
             shutil.move(os.path.join(path, file), os.path.join(destPath, file))
         for dirname in dirs:
-            merge_and_overwrite_folder(
-                os.path.join(path, dirname), os.path.join(dest, dirname)
-            )
+            merge_and_overwrite_folder(os.path.join(path, dirname), os.path.join(dest, dirname))
         os.rmdir(path)
 
 
@@ -134,14 +115,11 @@ def main():
     import argparse
     import sys
 
-    OUTPUT_BASE = Path("/media/tsanchez/tsanchez_data/data/derivatives")
     PYMIALSRTK_PATH = (
-        "/home/tsanchez/Documents/mial/"
-        "repositories/mialsuperresolutiontoolkit/pymialsrtk"
+        "/home/tsanchez/Documents/mial/" "repositories/mialsuperresolutiontoolkit/pymialsrtk"
     )
     DOCKER_VERSION = "v2.1.0-dev"
 
-    JSON_BASE = Path("/code/")
     PATH_TO_ATLAS = "/media/tsanchez/tsanchez_data/data/atlas"
     DATA_PATH = Path("/media/tsanchez/tsanchez_data/data/data")
 
@@ -180,17 +158,14 @@ def main():
     p.add_argument(
         "--txt_to",
         default=None,
-        help="Where the text output is stored. By default, it is output to "
-        "the command line.",
+        help="Where the text output is stored. By default, it is output to " "the command line.",
     )
     p.add_argument(
         "--param_file",
         default=None,
         help="Where the json parameters are stored, relatively from code/ ",
     )
-    p.add_argument(
-        "--out_folder", default=None, help="Where the results are stored."
-    )
+    p.add_argument("--out_folder", default=None, help="Where the results are stored.")
     p.add_argument(
         "--masks_derivatives_dir",
         default=None,
@@ -249,10 +224,7 @@ def main():
 
     mask_str = "automated" if automated else "manual"
     if not masks_derivatives_dir and not automated:
-        raise RuntimeError(
-            "masks_derivatives_dir should be defined when"
-            " using manual masks."
-        )
+        raise RuntimeError("masks_derivatives_dir should be defined when" " using manual masks.")
     elif masks_derivatives_dir and automated:
         raise RuntimeError(
             "Incompatible value of parameters automated and "
@@ -268,8 +240,7 @@ def main():
     os.makedirs(out_folder, exist_ok=True)
     auto_dict = None
     if complement_missing_masks:
-        assert (
-            masks_derivatives_dir is not None,
+        assert masks_derivatives_dir is not None, (
             "Cannot use --complement_missing_masks if masks_derivatives_dir is None",
         )
 
@@ -286,13 +257,9 @@ def main():
         subject_json = Path("/code/") / param_file.name
     else:
         if automated:
-            subject_json = (
-                Path("/bids_dir/code/") / "automated_preprocessing_config.json"
-            )
+            subject_json = Path("/bids_dir/code/") / "automated_preprocessing_config.json"
         else:
-            subject_json = (
-                Path("/bids_dir/code/") / "manual_preprocessing_config.json"
-            )
+            subject_json = Path("/bids_dir/code/") / "manual_preprocessing_config.json"
 
     base_command = (
         f"docker run --rm -t -u $(id -u):$(id -g)"
@@ -301,8 +268,7 @@ def main():
     )
     if not no_python_mount:
         base_command += (
-            f" -v {pymialsrtk_path}:/opt/conda/lib/python3.7/site-"
-            f"packages/pymialsrtk/"
+            f" -v {pymialsrtk_path}:/opt/conda/lib/python3.7/site-" f"packages/pymialsrtk/"
         )
     if masks_derivatives_dir is not None:
         base_command += f" -v {masks_derivatives_dir}:/masks"
@@ -329,9 +295,9 @@ def main():
     if verbose:
         base_command += " --verbose"
     if masks_derivatives_dir is not None:
-        base_command += f" --masks_derivatives_dir /masks"
+        base_command += " --masks_derivatives_dir /masks"
     if labels_derivatives_dir is not None:
-        base_command += f" --labels_derivatives_dir /labels"
+        base_command += " --labels_derivatives_dir /labels"
     if txt_to:
         base_command += f" > {txt_to}"
     time_base = time.time()
@@ -341,9 +307,7 @@ def main():
     out_final = out_folder / f"{out_folder.name}"
 
     # Renaming the pymialsrtk output to a folder with the same name as the output folder.
-    merge_and_overwrite_folder(
-        out_folder / f"pymialsrtk-{DOCKER_VERSION[1:]}", out_final
-    )
+    merge_and_overwrite_folder(out_folder / f"pymialsrtk-{DOCKER_VERSION[1:]}", out_final)
 
     edit_output_json(
         out_final,

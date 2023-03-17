@@ -54,10 +54,7 @@ def get_atlas_target(recon_path):
 
 
 def find_run_id(file_list):
-    run_dict = {
-        int(re.findall(r"run-(\d+)_", str(file))[-1]): file
-        for file in file_list
-    }
+    run_dict = {int(re.findall(r"run-(\d+)_", str(file))[-1]): file for file in file_list}
     return run_dict
 
 
@@ -128,7 +125,6 @@ def iterate_subject(
     config,
 ):
 
-    pid = os.getpid()
     if participant_label:
         if sub not in participant_label:
             return
@@ -141,8 +137,6 @@ def iterate_subject(
     output_path_crop = output_path / "cropped_input"
     output_path = output_path / "nesvor"
     sub_ses_masks_dict = iter_dir(mask_base_path)
-    print("sub_ses", sub_ses_dict)
-    print(f"sub_ses_mask", sub_ses_masks_dict)
     os.makedirs(output_path, exist_ok=True)
 
     sub_path = f"sub-{sub}"
@@ -162,9 +156,7 @@ def iterate_subject(
         run_id = conf["sr-id"] if "sr-id" in conf else "1"
         run_path = f"run-{run_id}"
 
-        mask_list, auto_masks = filter_and_complement_mask_list(
-            stacks, sub, ses, mask_list
-        )
+        mask_list, auto_masks = filter_and_complement_mask_list(stacks, sub, ses, mask_list)
         mask_list = [str(f) for f in mask_list]
         img_list = [str(f) for f in filter_run_list(stacks, img_list)]
         print(mask_list, img_list)
@@ -178,26 +170,17 @@ def iterate_subject(
         output_sub_ses = output_path / sub_path / ses_path / "anat"
         os.makedirs(output_sub_ses, exist_ok=True)
 
-        img_list, mask_list = crop_input(
-            sub, ses, output_path_crop, img_list, mask_list
-        )
+        img_list, mask_list = crop_input(sub, ses, output_path_crop, img_list, mask_list)
         mount_base = Path(img_list[0]).parent
-        img_str = " ".join(
-            [str(Path("/data") / Path(im).name) for im in img_list]
-        )
-        mask_str = " ".join(
-            [str(Path("/data") / Path(m).name) for m in mask_list]
-        )
+        img_str = " ".join([str(Path("/data") / Path(im).name) for im in img_list])
+        mask_str = " ".join([str(Path("/data") / Path(m).name) for m in mask_list])
 
         out = Path("/out")
         model = out / f"{sub_path}_{ses_path}_{run_path}_model.pt"
 
         for i, res in enumerate(target_res):
             res_str = str(res).replace(".", "p")
-            out_base = (
-                f"{sub_path}_{ses_path}_"
-                f"acq-haste_res-{res_str}_{run_path}_T2w"
-            )
+            out_base = f"{sub_path}_{ses_path}_" f"acq-haste_res-{res_str}_{run_path}_T2w"
             output_file = str(out / out_base) + "_misaligned.nii.gz"
             output_json = str(output_sub_ses / out_base) + ".json"
             if i == 0:

@@ -61,9 +61,7 @@ def get_cropped_stack_based_on_mask(
     # Crop to image region defined by rectangular mask
 
     new_origin = list(
-        ni.affines.apply_affine(
-            mask_ni.affine, [x_range[0], y_range[0], z_range[0]]
-        )
+        ni.affines.apply_affine(mask_ni.affine, [x_range[0], y_range[0], z_range[0]])
     ) + [1]
     new_affine = image_ni.affine
     new_affine[:, -1] = new_origin

@@ -12,8 +12,8 @@ def get_subject_dict(bids_list):
     files_dict, masks_dict = defaultdict(list), defaultdict(list)
     for i, run in enumerate(bids_list):
         sub, ses, im, mask = run["sub"], run["ses"], run["im"], run["mask"]
-        files_dict[f"{sub} - {ses}"].append(run["im"])
-        masks_dict[f"{sub} - {ses}"].append(run["mask"])
+        files_dict[f"{sub} - {ses}"].append(im)
+        masks_dict[f"{sub} - {ses}"].append(mask)
     return files_dict, masks_dict
 
 

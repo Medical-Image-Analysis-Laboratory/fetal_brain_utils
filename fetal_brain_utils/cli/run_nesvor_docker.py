@@ -10,6 +10,7 @@ import os
 from functools import partial
 import json
 import re
+import nibabel as ni
 
 # Default data path
 DATA_PATH = Path("/media/tsanchez/tsanchez_data/data/data")
@@ -140,7 +141,8 @@ def iterate_subject(
     output_path_crop = output_path / "cropped_input"
     output_path = output_path / "nesvor"
     sub_ses_masks_dict = iter_dir(mask_base_path)
-
+    print("sub_ses", sub_ses_dict)
+    print(f"sub_ses_mask", sub_ses_masks_dict)
     os.makedirs(output_path, exist_ok=True)
 
     sub_path = f"sub-{sub}"
@@ -149,7 +151,7 @@ def iterate_subject(
 
     for conf in config_sub:
         if "session" not in conf:
-            ses = "01"
+            ses = None
             mask_list = sub_ses_masks_dict[sub]
             img_list = sub_ses_dict[sub]
         else:
@@ -165,6 +167,7 @@ def iterate_subject(
         )
         mask_list = [str(f) for f in mask_list]
         img_list = [str(f) for f in filter_run_list(stacks, img_list)]
+        print(mask_list, img_list)
         conf["use_auto_mask"] = auto_masks
         conf["im_path"] = img_list
         conf["mask_path"] = mask_list
@@ -195,7 +198,7 @@ def iterate_subject(
                 f"{sub_path}_{ses_path}_"
                 f"acq-haste_res-{res_str}_{run_path}_T2w"
             )
-            output_file = str(out / out_base) + ".nii.gz"
+            output_file = str(out / out_base) + "_misaligned.nii.gz"
             output_json = str(output_sub_ses / out_base) + ".json"
             if i == 0:
                 cmd = (
@@ -205,6 +208,7 @@ def iterate_subject(
                     f"junshenxu/nesvor:v0.1.0 nesvor reconstruct "
                     f"--input-stacks {img_str} "
                     f"--stack-masks {mask_str} "
+                    f"--n-levels-bias 1 "
                     f"--output-volume {output_file} "
                     f"--output-resolution {res} "
                     f"--output-model {model} "
@@ -228,11 +232,21 @@ def iterate_subject(
                 "command": cmd,
             }
             conf = {k: conf[k] for k in OUT_JSON_ORDER if k in conf.keys()}
-            print("OUTOUTUO", output_sub_ses)
             with open(output_json, "w") as f:
                 json.dump(conf, f, indent=4)
             print(cmd)
             os.system(cmd)
+
+            # Transform the affine of the sr reconstruction
+            out_file = str(output_sub_ses / out_base) + "_misaligned.nii.gz"
+            out_file_reo = str(output_sub_ses / out_base) + ".nii.gz"
+            sr = ni.load(out_file)
+            affine = sr.affine[[2, 1, 0, 3]]
+            affine[1, :] *= -1
+            ni.save(
+                ni.Nifti1Image(sr.get_fdata()[:, :, :], affine, sr.header),
+                out_file_reo,
+            )
 
 
 def main():

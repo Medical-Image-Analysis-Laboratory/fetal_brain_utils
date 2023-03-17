@@ -1,0 +1,26 @@
+[
+    [
+        "simu005",
+        "01",
+        2,
+        "/home/tsanchez/Documents/mial/repositories/utils_fetal_brain/tests/data/sub-simu005/ses-01/anat/sub-simu005_ses-01_run-2_T2w.nii.gz"
+    ],
+    [
+        "simu005",
+        "01",
+        6,
+        "/home/tsanchez/Documents/mial/repositories/utils_fetal_brain/tests/data/sub-simu005/ses-01/anat/sub-simu005_ses-01_run-6_T2w.nii.gz"
+    ],
+    [
+        "simu009",
+        "01",
+        7,
+        "/home/tsanchez/Documents/mial/repositories/utils_fetal_brain/tests/data/sub-simu009/ses-01/anat/sub-simu009_ses-01_run-7_T2w.nii.gz"
+    ],
+    [
+        "simu038",
+        "01",
+        2,
+        "/home/tsanchez/Documents/mial/repositories/utils_fetal_brain/tests/data/sub-simu038/ses-01/anat/sub-simu038_ses-01_run-2_T2w.nii.gz"
+    ]
+]

@@ -16,7 +16,7 @@ from fetal_brain_utils import (
 from fetal_brain_utils import (
     filter_and_complement_mask_list as filter_mask_list,
 )
-
+import re
 from fetal_brain_utils.definitions import OUT_JSON_ORDER
 import argparse
 from pathlib import Path
@@ -36,9 +36,7 @@ DATA_PATH = Path("/media/tsanchez/tsanchez_data/data/data")
 ALPHA = 0.068
 # Relative paths in the docker image to various scripts.
 RECON_FROM_SLICES = "NiftyMIC/niftymic_reconstruct_volume_from_slices.py"
-RECONSTRUCTION_PYTHON = (
-    "NiftyMIC/niftymic/application/run_reconstruction_pipeline.py"
-)
+RECONSTRUCTION_PYTHON = "NiftyMIC/niftymic/application/run_reconstruction_pipeline.py"
 
 
 def get_atlas_target(recon_path):
@@ -52,9 +50,6 @@ def get_atlas_target(recon_path):
                 if "STA" in atlas:
                     break
     return atlas, target
-
-
-import re
 
 
 def iterate_subject(
@@ -89,9 +84,7 @@ def iterate_subject(
     masks_layout = BIDSLayout(masks_folder, validate=False)
     # Pre-processing: mask (and crop) the low-resolution stacks
     cropped_path_base = niftymic_out_path / ("preprocess_ebner" + out_suffix)
-    cropped_mask_path_base = niftymic_out_path / (
-        "preprocess_mask_ebner" + out_suffix
-    )
+    cropped_mask_path_base = niftymic_out_path / ("preprocess_mask_ebner" + out_suffix)
     # Output for the reconstruction stage
     recon_path_base = niftymic_out_path / ("recon_ebner" + out_suffix)
 
@@ -122,17 +115,13 @@ def iterate_subject(
                 return_type="filename",
             )
 
-            stacks = (
-                conf["stacks"] if "stacks" in conf else find_run_id(img_list)
-            )
+            stacks = conf["stacks"] if "stacks" in conf else find_run_id(img_list)
             run_id = conf["sr-id"] if "sr-id" in conf else "1"
 
             run_path = f"run-{run_id}"
             ses_path = f"ses-{ses}" if ses is not None else ""
 
-            mask_list, auto_masks = filter_mask_list(
-                stacks, sub, ses, mask_list
-            )
+            mask_list, auto_masks = filter_mask_list(stacks, sub, ses, mask_list)
             img_list = filter_run_list(stacks, img_list)
             conf["use_auto_mask"] = auto_masks
             conf["im_path"] = img_list
@@ -149,9 +138,7 @@ def iterate_subject(
             mask_path = masks_folder / sub_ses_anat
 
             input_cropped_path = cropped_path_base / sub_ses_anat / run_path
-            mask_cropped_path = (
-                cropped_mask_path_base / sub_ses_anat / run_path
-            )
+            mask_cropped_path = cropped_mask_path_base / sub_ses_anat / run_path
             if not fake_run:
                 os.makedirs(input_cropped_path, exist_ok=True)
                 os.makedirs(mask_cropped_path, exist_ok=True)
@@ -178,9 +165,7 @@ def iterate_subject(
                 imc = crop_path(im, m)
                 maskc = crop_path(m, m)
                 # Masking
-                imc = ni.Nifti1Image(
-                    imc.get_fdata() * maskc.get_fdata(), imc.affine
-                )
+                imc = ni.Nifti1Image(imc.get_fdata() * maskc.get_fdata(), imc.affine)
 
                 ni.save(imc, cropped_im)
                 ni.save(maskc, cropped_mask)
@@ -190,9 +175,7 @@ def iterate_subject(
                 run_mask = Path("/seg") / mask_file
                 filename_data.append(str(run_im))
                 filename_masks.append(str(run_mask))
-                filename_prepro.append(
-                    "/srr/preprocessing_n4itk/" + os.path.basename(run_im)
-                )
+                filename_prepro.append("/srr/preprocessing_n4itk/" + os.path.basename(run_im))
             filename_data = " ".join(filename_data)
             filename_masks = " ".join(filename_masks)
             filename_prepro = " ".join(filename_prepro)
@@ -234,16 +217,12 @@ def iterate_subject(
                 "Name": "CHUV fetal brain MRI",
                 "BIDSVersion": "1.8.0",
             }
-            with open(
-                output_path / "niftymic" / "dataset_description.json", "w"
-            ) as f:
+            with open(output_path / "niftymic" / "dataset_description.json", "w") as f:
                 json.dump(dataset_description, f)
 
             out_path = output_path / "niftymic" / sub_path / ses_path / "anat"
             os.makedirs(out_path, exist_ok=True)
-            final_base = str(
-                out_path / f"{sub_path}_{ses_path}_{run_path}_SR_T2w"
-            )
+            final_base = str(out_path / f"{sub_path}_{ses_path}_{run_path}_SR_T2w")
             final_rec = final_base + ".nii.gz"
             final_rec_json = final_base + ".json"
             final_mask = final_base + "_mask.nii.gz"
@@ -252,6 +231,7 @@ def iterate_subject(
                 recon_path / "recon_template_space/srr_template.nii.gz",
                 final_rec,
             )
+
             shutil.copyfile(
                 recon_path / "recon_template_space/srr_template_mask.nii.gz",
                 final_mask,
@@ -265,7 +245,7 @@ def iterate_subject(
             conf = {k: conf[k] for k in OUT_JSON_ORDER if k in conf.keys()}
             with open(final_rec_json, "w") as f:
                 json.dump(conf, f, indent=4)
-        except:
+        except Exception:
             msg = f"{sub_path} - {ses_path} failed:\n{traceback.format_exc()}"
             print(msg)
             failure_list.append(msg)
@@ -328,8 +308,7 @@ def main():
         "--use_preprocessed",
         action="store_true",
         default=False,
-        help="Whether the parameter study should use "
-        "bias corrected images as input.",
+        help="Whether the parameter study should use " "bias corrected images as input.",
     )
 
     p.add_argument(

@@ -81,8 +81,7 @@ class BIDSdir:
         }
 
         PATTERN = (
-            self.bids_dir
-            + "/sub-{subject}[/ses-{session}][/{datatype}]/sub-{subject}"
+            self.bids_dir + "/sub-{subject}[/ses-{session}][/{datatype}]/sub-{subject}"
             "[_ses-{session}][_acq-{acquisition}][_run-{run}]_{suffix}.{extension}"
         )
         return build_path(ents, [PATTERN])
@@ -116,9 +115,7 @@ class BIDSdir:
         base_path = Path(base_path)
         bids_path = Path(bids_path)
         if os.path.isfile(bids_path):
-            raise RuntimeError(
-                f"Target file {bids_path} already exists for {base_path}."
-            )
+            raise RuntimeError(f"Target file {bids_path} already exists for {base_path}.")
         os.makedirs(bids_path.parent, exist_ok=True)
 
         suffix = "".join(base_path.suffixes)
@@ -138,9 +135,7 @@ class BIDSdir:
 
         Currently, this does not handle sessions.
 
-        A typical example of pattern could be:
-        '/(?P<sub>\w+)\/SERIES_(?P<run>\d+)\.(?P<ext>[\w\.]+)'
-        ->It finds and copies files that satisfy a structure like
+        It finds and copies files that satisfy a structure like
         "base_dir/{subject}/SERIES_{run}.{extension}".
 
         Currently, only ".nii", ".nii.gz" and ".json" are handled as
@@ -155,10 +150,7 @@ class BIDSdir:
             if sub not in sub_dict.keys():
                 sub_dict[sub] = f"{self._sub_id:03d}"
                 self._sub_id += 1
-            ents_curr = ents
-            bids_path = self.get_file_path(
-                sub_dict[sub], int(run), ext, acquisition
-            )
+            bids_path = self.get_file_path(sub_dict[sub], int(run), ext, acquisition)
             self.copy2bids(f, bids_path)
         # Write subject dictionary into participants.csv
         csv_path = self.bids_dir + "/participants.csv"
@@ -172,8 +164,8 @@ class BIDSdir:
                 writer.writerow([f"sub-{v}", k])
 
 
-PATTERN_Z = "/(?P<sub>\w+)\/input_files\/\w*_(?P<run>\w+)\.(?P<ext>[\w\.]+)"
-PATTERN_V = "/(?P<sub>\w+)\/SERIES_(?P<run>\d+)\.(?P<ext>[\w\.]+)"
+PATTERN_Z = r"/(?P<sub>\w+)\/input_files\/\w*_(?P<run>\w+)\.(?P<ext>[\w\.]+)"
+PATTERN_V = r"/(?P<sub>\w+)\/SERIES_(?P<run>\d+)\.(?P<ext>[\w\.]+)"
 
 
 def main():
@@ -234,9 +226,7 @@ def main():
             args.acquisition is None
         ), f"args.acquisition must be None when using a prespecified pattern {args.pattern}"
     else:
-        assert (
-            args.acquisition is not None
-        ), f"args.acquisition must be specified"
+        assert args.acquisition is not None, "args.acquisition must be specified"
         acq = args.acquisition
     bids = BIDSdir(args.bids_dir)
     bids.dir2bids(args.base_dir, pattern, acq)

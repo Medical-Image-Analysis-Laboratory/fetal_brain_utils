@@ -10,6 +10,7 @@ import os
 from functools import partial
 import json
 import re
+import nibabel as ni
 
 # Default data path
 DATA_PATH = Path("/media/tsanchez/tsanchez_data/data/data")
@@ -53,10 +54,7 @@ def get_atlas_target(recon_path):
 
 
 def find_run_id(file_list):
-    run_dict = {
-        int(re.findall(r"run-(\d+)_", str(file))[-1]): file
-        for file in file_list
-    }
+    run_dict = {int(re.findall(r"run-(\d+)_", str(file))[-1]): file for file in file_list}
     return run_dict
 
 
@@ -127,7 +125,6 @@ def iterate_subject(
     config,
 ):
 
-    pid = os.getpid()
     if participant_label:
         if sub not in participant_label:
             return
@@ -140,7 +137,6 @@ def iterate_subject(
     output_path_crop = output_path / "cropped_input"
     output_path = output_path / "nesvor"
     sub_ses_masks_dict = iter_dir(mask_base_path)
-
     os.makedirs(output_path, exist_ok=True)
 
     sub_path = f"sub-{sub}"
@@ -149,7 +145,7 @@ def iterate_subject(
 
     for conf in config_sub:
         if "session" not in conf:
-            ses = "01"
+            ses = None
             mask_list = sub_ses_masks_dict[sub]
             img_list = sub_ses_dict[sub]
         else:
@@ -160,11 +156,10 @@ def iterate_subject(
         run_id = conf["sr-id"] if "sr-id" in conf else "1"
         run_path = f"run-{run_id}"
 
-        mask_list, auto_masks = filter_and_complement_mask_list(
-            stacks, sub, ses, mask_list
-        )
+        mask_list, auto_masks = filter_and_complement_mask_list(stacks, sub, ses, mask_list)
         mask_list = [str(f) for f in mask_list]
         img_list = [str(f) for f in filter_run_list(stacks, img_list)]
+        print(mask_list, img_list)
         conf["use_auto_mask"] = auto_masks
         conf["im_path"] = img_list
         conf["mask_path"] = mask_list
@@ -175,27 +170,18 @@ def iterate_subject(
         output_sub_ses = output_path / sub_path / ses_path / "anat"
         os.makedirs(output_sub_ses, exist_ok=True)
 
-        img_list, mask_list = crop_input(
-            sub, ses, output_path_crop, img_list, mask_list
-        )
+        img_list, mask_list = crop_input(sub, ses, output_path_crop, img_list, mask_list)
         mount_base = Path(img_list[0]).parent
-        img_str = " ".join(
-            [str(Path("/data") / Path(im).name) for im in img_list]
-        )
-        mask_str = " ".join(
-            [str(Path("/data") / Path(m).name) for m in mask_list]
-        )
+        img_str = " ".join([str(Path("/data") / Path(im).name) for im in img_list])
+        mask_str = " ".join([str(Path("/data") / Path(m).name) for m in mask_list])
 
         out = Path("/out")
         model = out / f"{sub_path}_{ses_path}_{run_path}_model.pt"
 
         for i, res in enumerate(target_res):
             res_str = str(res).replace(".", "p")
-            out_base = (
-                f"{sub_path}_{ses_path}_"
-                f"acq-haste_res-{res_str}_{run_path}_T2w"
-            )
-            output_file = str(out / out_base) + ".nii.gz"
+            out_base = f"{sub_path}_{ses_path}_" f"acq-haste_res-{res_str}_{run_path}_T2w"
+            output_file = str(out / out_base) + "_misaligned.nii.gz"
             output_json = str(output_sub_ses / out_base) + ".json"
             if i == 0:
                 cmd = (
@@ -205,6 +191,7 @@ def iterate_subject(
                     f"junshenxu/nesvor:v0.1.0 nesvor reconstruct "
                     f"--input-stacks {img_str} "
                     f"--stack-masks {mask_str} "
+                    f"--n-levels-bias 1 "
                     f"--output-volume {output_file} "
                     f"--output-resolution {res} "
                     f"--output-model {model} "
@@ -228,11 +215,21 @@ def iterate_subject(
                 "command": cmd,
             }
             conf = {k: conf[k] for k in OUT_JSON_ORDER if k in conf.keys()}
-            print("OUTOUTUO", output_sub_ses)
             with open(output_json, "w") as f:
                 json.dump(conf, f, indent=4)
             print(cmd)
             os.system(cmd)
+
+            # Transform the affine of the sr reconstruction
+            out_file = str(output_sub_ses / out_base) + "_misaligned.nii.gz"
+            out_file_reo = str(output_sub_ses / out_base) + ".nii.gz"
+            sr = ni.load(out_file)
+            affine = sr.affine[[2, 1, 0, 3]]
+            affine[1, :] *= -1
+            ni.save(
+                ni.Nifti1Image(sr.get_fdata()[:, :, :], affine, sr.header),
+                out_file_reo,
+            )
 
 
 def main():

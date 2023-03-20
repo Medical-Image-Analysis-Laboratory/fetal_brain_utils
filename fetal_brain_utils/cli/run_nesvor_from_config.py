@@ -15,7 +15,7 @@ import nibabel as ni
 
 # Only use device_id=1 (device_id=0 not very efficient)
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-os.environ['MKL_THREADING_LAYER'] = 'GNU'
+os.environ["MKL_THREADING_LAYER"] = "GNU"
 
 # Default data path
 DATA_PATH = Path("/media/tsanchez/tsanchez_data/data/data")
@@ -59,10 +59,7 @@ def get_atlas_target(recon_path):
 
 
 def find_run_id(file_list):
-    run_dict = {
-        int(re.findall(r"run-(\d+)_", str(file))[-1]): file
-        for file in file_list
-    }
+    run_dict = {int(re.findall(r"run-(\d+)_", str(file))[-1]): file for file in file_list}
     return run_dict
 
 
@@ -133,7 +130,6 @@ def iterate_subject(
     config,
 ):
 
-    pid = os.getpid()
     if participant_label:
         if sub not in participant_label:
             return
@@ -169,9 +165,7 @@ def iterate_subject(
         run_id = conf["sr-id"] if "sr-id" in conf else "1"
         run_path = f"run-{run_id}"
 
-        mask_list, auto_masks = filter_and_complement_mask_list(
-            stacks, sub, ses, mask_list
-        )
+        mask_list, auto_masks = filter_and_complement_mask_list(stacks, sub, ses, mask_list)
         mask_list = [str(f) for f in mask_list]
         img_list = [str(f) for f in filter_run_list(stacks, img_list)]
         conf["use_auto_mask"] = auto_masks
@@ -188,9 +182,7 @@ def iterate_subject(
             output_sub_ses = output_path / sub_path / "anat"
         os.makedirs(output_sub_ses, exist_ok=True)
 
-        img_list, mask_list = crop_input(
-            sub, ses, output_path_crop, img_list, mask_list
-        )
+        img_list, mask_list = crop_input(sub, ses, output_path_crop, img_list, mask_list)
 
         # Get in-plane resolution to be set as target resolution.
         img_str = " ".join([str(im) for im in img_list])
@@ -200,8 +192,7 @@ def iterate_subject(
         for i, res in enumerate(target_res):
             res_str = str(res).replace(".", "p")
             output_str = (
-                output_sub_ses / f"{sub_ses_path}_"
-                f"acq-haste_res-{res_str}_{run_path}_T2w"
+                output_sub_ses / f"{sub_ses_path}_" f"acq-haste_res-{res_str}_{run_path}_T2w"
             )
             output_file = str(output_str) + ".nii.gz"
             output_json = str(output_str) + ".json"

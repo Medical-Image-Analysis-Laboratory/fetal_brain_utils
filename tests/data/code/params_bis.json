@@ -1,0 +1,67 @@
+{
+    "simu005": [
+        {
+            "sr-id": 1,
+            "session": "01",
+            "ga":21,
+            "paramTV": {
+                "lambdaTV": [0.5, 0.75, 1.0, 1.5, 2.0, 3.0],
+                "deltatTV": [0.01, 0.05, 0.1]
+            },
+            "custom_interfaces": {
+                "do_nlm_denoising": false, 
+                "skip_stacks_ordering": false, 
+                "skip_svr": false, 
+                "do_refine_hr_mask": true, 
+                "do_reconstruct_labels": true, 
+                "do_anat_orientation": false, 
+                "do_multi_parameters": true, 
+                "do_srr_assessment": true
+            },
+            "stacks": [2,3,5,6]
+        }
+    ],
+    "simu009": [
+        {
+            "sr-id": 1,
+            "session": "01",
+            "ga":29,
+            "paramTV": {
+                "lambdaTV": [0.5, 0.75, 1.0, 1.5, 2.0, 3.0],
+                "deltatTV": [0.01, 0.05, 0.1]
+            },
+            "custom_interfaces": {
+                "do_nlm_denoising": false, 
+                "skip_stacks_ordering": false, 
+                "skip_svr": false, 
+                "do_refine_hr_mask": true, 
+                "do_reconstruct_labels": true, 
+                "do_anat_orientation": false, 
+                "do_multi_parameters": true, 
+                "do_srr_assessment": true
+            }
+        }
+    ],
+    "simu038": [
+        {
+            "sr-id": 1,
+            "session": "01",
+            "ga":33,
+            "paramTV": {
+                "lambdaTV": [0.5, 0.75, 1.0, 1.5, 2.0, 3.0],
+                "deltatTV": [0.01, 0.05, 0.1]
+            },
+            "custom_interfaces": {
+                "do_nlm_denoising": false, 
+                "skip_stacks_ordering": false, 
+                "skip_svr": false, 
+                "do_refine_hr_mask": true, 
+                "do_reconstruct_labels": true, 
+                "do_anat_orientation": false, 
+                "do_multi_parameters": true, 
+                "do_srr_assessment": true
+            },
+            "stacks":[2,3,5,6,7,8]
+        }
+    ]
+}

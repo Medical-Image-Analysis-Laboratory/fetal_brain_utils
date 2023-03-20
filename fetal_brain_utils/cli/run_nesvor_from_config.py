@@ -21,7 +21,7 @@ os.environ["MKL_THREADING_LAYER"] = "GNU"
 DATA_PATH = Path("/media/tsanchez/tsanchez_data/data/data")
 AUTO_MASK_PATH = "/media/tsanchez/tsanchez_data/data/out_anon/masks"
 
-BATCH_SIZE = 2048
+BATCH_SIZE = 8192
 
 
 def get_mask_path(bids_dir, subject, ses, run):
@@ -127,6 +127,7 @@ def iterate_subject(
     mask_base_path,
     participant_label,
     target_res,
+    single_precision,
     config,
 ):
 
@@ -205,7 +206,6 @@ def iterate_subject(
                     f"--output-resolution {res} "
                     f"--output-model {model} "
                     f"--batch-size {BATCH_SIZE} "
-                    f" --single-precision"
                 )
             else:
                 cmd = (
@@ -215,8 +215,9 @@ def iterate_subject(
                     f"--output-volume {output_file} "
                     f"--output-resolution {res} "
                     f"--inference-batch-size 16384"
-                    f" --single-precision"
                 )
+            if single_precision:
+                cmd += " --single-precision"
 
             print(cmd)
             os.system(cmd)
@@ -288,6 +289,13 @@ def main():
         type=float,
         help="Target resolutions at which the reconstruction should be done.",
     )
+
+    p.add_argument(
+        "--single_precision",
+        action="store_true",
+        default=False,
+        help="Whether single precision should be used for training (by default, half precision is used.)",
+    )
     args = p.parse_args()
 
     data_path = Path(args.data_path).resolve()
@@ -309,6 +317,7 @@ def main():
         mask_base_path=masks_folder,
         participant_label=args.participant_label,
         target_res=args.target_res,
+        single_precision=args.single_precision,
         config=config,
     )
     for sub, config_sub in params.items():

@@ -21,7 +21,7 @@ os.environ['MKL_THREADING_LAYER'] = 'GNU'
 DATA_PATH = Path("/media/tsanchez/tsanchez_data/data/data")
 AUTO_MASK_PATH = "/media/tsanchez/tsanchez_data/data/out_anon/masks"
 
-BATCH_SIZE = 4096
+BATCH_SIZE = 2048
 
 
 def get_mask_path(bids_dir, subject, ses, run):
@@ -223,7 +223,7 @@ def iterate_subject(
                     f"--output-resolution {res} "
                     f"--output-volume {output_file} "
                     f"--output-resolution {res} "
-                    f"--inference-batch-size 4000"
+                    f"--inference-batch-size 16384"
                     f" --single-precision"
                 )
 

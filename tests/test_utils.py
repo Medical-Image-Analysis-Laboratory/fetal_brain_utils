@@ -35,6 +35,7 @@ def test_get_mask_path(bids_dir, sub, ses, run, out):
 def test_iter_bids():
     layout = BIDSLayout(BIDS_DIR)
     out = [list(o) for o in iter_bids(layout)]
+    out = [o[:3] + [o[3].split("tests")[-1]] for o in out]
     with open(FILE_DIR / "output/iter_bids_dir.json", "r") as f:
         ref = json.load(f)
     assert out == ref
@@ -43,6 +44,7 @@ def test_iter_bids():
 def test_iter_bids_mask():
     layout = BIDSLayout(MASKS_DIR, validate=False)
     out = [list(o) for o in iter_bids(layout, suffix="mask")]
+    out = [o[:3] + [o[3].split("tests")[-1]] for o in out]
     with open(FILE_DIR / "output/iter_bids_dir_mask.json", "r") as f:
         ref = json.load(f)
     assert out == ref

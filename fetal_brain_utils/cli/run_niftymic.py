@@ -207,9 +207,11 @@ def iterate_subject(
             # Replace input and mask path by preprocessed
             input_path, mask_path = input_cropped_path, mask_cropped_path
             cmd = (
-                f"docker run -v {input_path}:/data "
+                f"docker run -u $(id -u):$(id -g) -v {input_path}:/data "
                 f"-v {mask_path}:/seg "
                 f"-v {recon_path}:/srr "
+                f"-v /media/paul/data/paul/fetal_uncertainty_reconstruction/reconstruction_methods/NiftyMIC/niftymic:/app/NiftyMIC/niftymic "
+                f"-v /media/paul/data/paul/out/niftymic/test_output_dir:/test_output_dir "
                 f"renbem/niftymic python "
                 f"{RECONSTRUCTION_PYTHON} "
                 f"--filenames {filename_data} "
@@ -338,7 +340,7 @@ def main():
     )
     args = p.parse_args()
     data_path = Path(args.data_path).resolve()
-    config = Path(args.config).resolve()
+    config = Path(args.config)
     masks_folder = Path(args.masks_folder).resolve()
     out_path = Path(args.out_path).resolve()
     alpha = args.alpha
@@ -352,7 +354,7 @@ def main():
 
     bids_layout = BIDSLayout(data_path, validate=True)
 
-    with open(config, "r") as f:
+    with open(data_path / "code" / config, "r") as f:
         params = json.load(f)
     # Iterate over all subjects and sessions
     iterate = partial(

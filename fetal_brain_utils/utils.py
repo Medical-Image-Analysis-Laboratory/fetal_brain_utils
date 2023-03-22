@@ -31,10 +31,7 @@ def get_mask_path(bids_dir, subject, ses, run):
 
 
 def find_run_id(file_list):
-    run_dict = {
-        int(re.findall(r"run-(\d+)_", str(file))[-1]): file
-        for file in file_list
-    }
+    run_dict = {int(re.findall(r"run-(\d+)_", str(file))[-1]): file for file in file_list}
     return run_dict
 
 
@@ -103,7 +100,7 @@ def csv_to_list(csv_path):
 def print_title(text, center=True, char="-"):
     try:
         terminal_size = os.get_terminal_size().columns
-    except:
+    except Exception:
         terminal_size = 80
     char_length = min(len(text) + 10, terminal_size)
     chars = char * char_length
@@ -180,9 +177,7 @@ def iter_bids_dict(bids_dict: dict, _depth=0, max_depth=1):
     for key, value in bids_dict.items():
         if isinstance(value, dict) and _depth < max_depth:
             # If value is dict then iterate over all its values
-            for keyvalue in iter_bids_dict(
-                value, _depth + 1, max_depth=max_depth
-            ):
+            for keyvalue in iter_bids_dict(value, _depth + 1, max_depth=max_depth):
                 yield (key, *keyvalue)
         else:
             # If value is not dict type then yield the value

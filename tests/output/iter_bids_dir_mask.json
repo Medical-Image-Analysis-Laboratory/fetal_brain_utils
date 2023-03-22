@@ -1,0 +1,32 @@
+[
+    [
+        "simu005",
+        "01",
+        2,
+        "/data/derivatives/masks/sub-simu005/ses-01/anat/sub-simu005_ses-01_run-2_mask.nii.gz"
+    ],
+    [
+        "simu005",
+        "01",
+        6,
+        "/data/derivatives/masks/sub-simu005/ses-01/anat/sub-simu005_ses-01_run-6_mask.nii.gz"
+    ],
+    [
+        "simu009",
+        null,
+        7,
+        "/data/derivatives/masks/sub-simu009/anat/sub-simu009_run-7_mask.nii.gz"
+    ],
+    [
+        "simu009",
+        "01",
+        2,
+        "/data/derivatives/masks/sub-simu009/ses-01/anat/sub-simu009_ses-01_run-2_mask.nii.gz"
+    ],
+    [
+        "simu038",
+        "01",
+        2,
+        "/data/derivatives/masks/sub-simu038/ses-01/anat/sub-simu038_ses-01_run-2_mask.nii.gz"
+    ]
+]

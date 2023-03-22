@@ -207,7 +207,7 @@ def iterate_subject(
             # Replace input and mask path by preprocessed
             input_path, mask_path = input_cropped_path, mask_cropped_path
             cmd = (
-                f"docker run -u $(id -u):$(id -g) -v {input_path}:/data "
+                f"docker run -v {input_path}:/data " #-u $(id -u):$(id -g)
                 f"-v {mask_path}:/seg "
                 f"-v {recon_path}:/srr "
                 f"-v /media/paul/data/paul/fetal_uncertainty_reconstruction/reconstruction_methods/NiftyMIC/niftymic:/app/NiftyMIC/niftymic "
@@ -380,3 +380,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# TEST REMOTE BRANCH

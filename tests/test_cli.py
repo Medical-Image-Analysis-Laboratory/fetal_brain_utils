@@ -12,12 +12,18 @@ from fetal_brain_utils.cli.run_nesvor_from_config import (
 import json
 from bids import BIDSLayout
 from pathlib import Path
-
+import pytest
 
 FILE_DIR = Path(__file__).parent.resolve()
 BIDS_DIR = FILE_DIR / "data"
 CONFIG_PATH = FILE_DIR / "data/code/params.json"
 MASKS_DIR = FILE_DIR / "data/derivatives/masks"
+
+
+def read_and_replace_txt(file_path):
+    with open(file_path) as f:
+        txt = f.readlines()
+    return "".join(txt).replace("<PATH>", str(FILE_DIR))
 
 
 def test_niftymic_iterate_subject(capsys):
@@ -44,12 +50,21 @@ def test_niftymic_iterate_subject(capsys):
         fake_run=True,
     )
     captured = capsys.readouterr()
-
-    with open(FILE_DIR / "output/niftymic_out.txt") as f:
-        niftymic = f.readlines()
-    niftymic = "".join(niftymic).replace("<PATH>", str(FILE_DIR))
+    niftymic = read_and_replace_txt(FILE_DIR / "output/niftymic_out.txt")
 
     assert captured.out == niftymic
+
+
+def remove_blanks(str):
+    return str.replace("\n", "").replace(" ", "")
+
+
+def test_niftymic_interface(capsys):
+    with pytest.raises(SystemExit):
+        main_niftymic(["-h"])
+    captured = capsys.readouterr()
+    niftymic = read_and_replace_txt(FILE_DIR / "output/niftymic_main_help.txt")
+    assert remove_blanks(captured.out) == remove_blanks(niftymic)
 
 
 def test_svrtk_iterate_subject(capsys):
@@ -74,10 +89,7 @@ def test_svrtk_iterate_subject(capsys):
         fake_run=True,
     )
     captured = capsys.readouterr()
-    with open(FILE_DIR / "output/svrtk_out.txt") as f:
-        svrtk = f.readlines()
-    svrtk = "".join(svrtk).replace("<PATH>", str(FILE_DIR))
-
+    svrtk = read_and_replace_txt(FILE_DIR / "output/svrtk_out.txt")
     assert captured.out == svrtk
 
 
@@ -105,7 +117,5 @@ def test_nesvor_source_iterate_subject(capsys):
         fake_run=True,
     )
     captured = capsys.readouterr()
-    with open(FILE_DIR / "output/nesvor_source_out.txt") as f:
-        nesvor = f.readlines()
-    nesvor = "".join(nesvor).replace("<PATH>", str(FILE_DIR))
+    nesvor = read_and_replace_txt(FILE_DIR / "output/nesvor_source_out.txt")
     assert captured.out == nesvor

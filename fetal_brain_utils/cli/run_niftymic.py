@@ -256,7 +256,7 @@ def iterate_subject(
                 print(e)
 
 
-def main():
+def main(argv=None):
 
     p = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -318,7 +318,7 @@ def main():
         default=False,
         help="Whether to only print the commands instead of running them",
     )
-    args = p.parse_args()
+    args = p.parse_args(argv)
     data_path = Path(args.data_path).resolve()
     config = Path(args.config)
     masks_folder = Path(args.masks_folder).resolve()

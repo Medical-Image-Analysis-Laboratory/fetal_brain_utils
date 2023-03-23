@@ -46,7 +46,7 @@ def test_niftymic_iterate_subject():
 
     with open(FILE_DIR / "output/niftymic_out.txt") as f:
         niftymic = f.readlines()
-    niftymic = "".join(niftymic)
+    niftymic = "".join(niftymic).replace("<PATH>", str(FILE_DIR))
 
     assert out == niftymic
 
@@ -78,6 +78,6 @@ def test_svrtk_iterate_subject():
     print(out)
     with open(FILE_DIR / "output/svrtk_out.txt") as f:
         svrtk = f.readlines()
-    svrtk = "".join(svrtk)
+    svrtk = "".join(svrtk).replace("<PATH>", str(FILE_DIR))
 
     assert out == svrtk

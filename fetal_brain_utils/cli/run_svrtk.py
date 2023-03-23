@@ -44,8 +44,7 @@ def iterate_subject(
     participant_label,
     fake_run,
 ):
-
-    pid = os.getpid()
+    output_path = Path(output_path)
     if participant_label:
         if sub not in participant_label:
             return
@@ -133,11 +132,11 @@ def iterate_subject(
                 im, m = ni.load(image), ni.load(mask)
                 ip_res.append(im.header["pixdim"][1])
                 tp_res.append(str(round(im.header["pixdim"][3], 1)))
-                imc = crop_path(im, m)
-
-                maskc = crop_path(m, m)
-                imc = ni.Nifti1Image(imc.get_fdata() * maskc.get_fdata(), imc.affine)
                 if not fake_run:
+                    imc = crop_path(im, m)
+
+                    maskc = crop_path(m, m)
+                    imc = ni.Nifti1Image(imc.get_fdata() * maskc.get_fdata(), imc.affine)
                     ni.save(imc, cropped_im)
 
                 # Define the file and path names inside the docker volume
@@ -169,34 +168,31 @@ def iterate_subject(
                 f"-thickness {tp_str} -resolution {np.min(ip_res):.2f}"
             )
 
-            print(tp_res, ip_res)
-            # data/sub-chuv005_ses-01_acq-haste_run-3_T2w.nii.gz -thickness 3.3 3.3 3.3 3.3 3.3 -svr_only -resolution 1.1 -iterations 3
-
-            print(f"RECONSTRUCTION STAGE (PID={pid})")
+            print("RECONSTRUCTION STAGE")
             print(cmd)
             print()
             if not fake_run:
                 os.system(cmd)
-            # Copy files in BIDS format
+                # Copy files in BIDS format
 
-            # Creating the dataset_description file.
-            os.makedirs(output_path / "svrtk", exist_ok=True)
-            dataset_description = {
-                "Name": "SVRTK fetal brain MRI reconstruction",
-                "BIDSVersion": "1.8.0",
-            }
-            with open(output_path / "svrtk" / "dataset_description.json", "w") as f:
-                json.dump(dataset_description, f)
+                # Creating the dataset_description file.
+                os.makedirs(output_path / "svrtk", exist_ok=True)
+                dataset_description = {
+                    "Name": "SVRTK fetal brain MRI reconstruction",
+                    "BIDSVersion": "1.8.0",
+                }
+                with open(output_path / "svrtk" / "dataset_description.json", "w") as f:
+                    json.dump(dataset_description, f)
 
-            final_rec_json = recon_path / recon_file.replace("nii.gz", "json")
+                final_rec_json = recon_path / recon_file.replace("nii.gz", "json")
 
-            conf["info"] = {
-                "reconstruction": "SVRTK",
-                "command": cmd,
-            }
-            conf = {k: conf[k] for k in OUT_JSON_ORDER if k in conf.keys()}
-            with open(final_rec_json, "w") as f:
-                json.dump(conf, f, indent=4)
+                conf["info"] = {
+                    "reconstruction": "SVRTK",
+                    "command": cmd,
+                }
+                conf = {k: conf[k] for k in OUT_JSON_ORDER if k in conf.keys()}
+                with open(final_rec_json, "w") as f:
+                    json.dump(conf, f, indent=4)
         except Exception:
             msg = f"{sub_path} - {ses_path} failed:\n{traceback.format_exc()}"
             print(msg)

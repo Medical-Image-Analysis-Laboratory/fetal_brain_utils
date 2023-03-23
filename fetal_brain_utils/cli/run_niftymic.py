@@ -66,7 +66,6 @@ def iterate_subject(
     fake_run,
 ):
 
-    pid = os.getpid()
     if participant_label:
         if sub not in participant_label:
             return
@@ -157,18 +156,20 @@ def iterate_subject(
                 boundary_k=0,
             )
             for image, mask in zip(img_list, mask_list):
+
                 print(f"Processing {image} {mask}")
                 im_file, mask_file = Path(image).name, Path(mask).name
                 cropped_im = input_cropped_path / im_file
                 cropped_mask = mask_cropped_path / mask_file
-                im, m = ni.load(image), ni.load(mask)
-                imc = crop_path(im, m)
-                maskc = crop_path(m, m)
-                # Masking
-                imc = ni.Nifti1Image(imc.get_fdata() * maskc.get_fdata(), imc.affine)
+                if not fake_run:
+                    im, m = ni.load(image), ni.load(mask)
+                    imc = crop_path(im, m)
+                    maskc = crop_path(m, m)
+                    # Masking
+                    imc = ni.Nifti1Image(imc.get_fdata() * maskc.get_fdata(), imc.affine)
 
-                ni.save(imc, cropped_im)
-                ni.save(maskc, cropped_mask)
+                    ni.save(imc, cropped_im)
+                    ni.save(maskc, cropped_mask)
 
                 # Define the file and path names inside the docker volume
                 run_im = Path("/data") / im_file
@@ -190,11 +191,9 @@ def iterate_subject(
             # Replace input and mask path by preprocessed
             input_path, mask_path = input_cropped_path, mask_cropped_path
             cmd = (
-                f"docker run -u $(id -u):$(id -g) -v {input_path}:/data "
+                f"docker run -v {input_path}:/data "
                 f"-v {mask_path}:/seg "
                 f"-v {recon_path}:/srr "
-                f"-v /media/paul/data/paul/fetal_uncertainty_reconstruction/reconstruction_methods/NiftyMIC/niftymic:/app/NiftyMIC/niftymic "
-                f"-v /media/paul/data/paul/out/niftymic/test_output_dir:/test_output_dir "
                 f"renbem/niftymic python "
                 f"{RECONSTRUCTION_PYTHON} "
                 f"--filenames {filename_data} "
@@ -204,47 +203,49 @@ def iterate_subject(
                 f" --suffix-mask _mask"
                 f" --alpha {alpha}"
             )
-            print(f"RECONSTRUCTION STAGE (PID={pid})")
+            print("RECONSTRUCTION STAGE")
             print(cmd)
             print()
             if not fake_run:
                 os.system(cmd)
-            ## Copy files in BIDS format
+                ## Copy files in BIDS format
 
-            # Creating the dataset_description file.
-            os.makedirs(output_path / "niftymic", exist_ok=True)
-            dataset_description = {
-                "Name": "CHUV fetal brain MRI",
-                "BIDSVersion": "1.8.0",
-            }
-            with open(output_path / "niftymic" / "dataset_description.json", "w") as f:
-                json.dump(dataset_description, f)
+                # Creating the dataset_description file.
+                os.makedirs(output_path / "niftymic", exist_ok=True)
+                dataset_description = {
+                    "Name": "CHUV fetal brain MRI",
+                    "BIDSVersion": "1.8.0",
+                }
+                with open(output_path / "niftymic" / "dataset_description.json", "w") as f:
+                    json.dump(dataset_description, f)
 
             out_path = output_path / "niftymic" / sub_path / ses_path / "anat"
-            os.makedirs(out_path, exist_ok=True)
+            if not fake_run:
+                os.makedirs(out_path, exist_ok=True)
             final_base = str(out_path / f"{sub_path}_{ses_path}_{run_path}_SR_T2w")
             final_rec = final_base + ".nii.gz"
             final_rec_json = final_base + ".json"
             final_mask = final_base + "_mask.nii.gz"
 
-            shutil.copyfile(
-                recon_path / "recon_template_space/srr_template.nii.gz",
-                final_rec,
-            )
+            if not fake_run:
+                shutil.copyfile(
+                    recon_path / "recon_template_space/srr_template.nii.gz",
+                    final_rec,
+                )
 
-            shutil.copyfile(
-                recon_path / "recon_template_space/srr_template_mask.nii.gz",
-                final_mask,
-            )
+                shutil.copyfile(
+                    recon_path / "recon_template_space/srr_template_mask.nii.gz",
+                    final_mask,
+                )
 
-            conf["info"] = {
-                "reconstruction": "NiftyMIC",
-                "alpha": alpha,
-                "command": cmd,
-            }
-            conf = {k: conf[k] for k in OUT_JSON_ORDER if k in conf.keys()}
-            with open(final_rec_json, "w") as f:
-                json.dump(conf, f, indent=4)
+                conf["info"] = {
+                    "reconstruction": "NiftyMIC",
+                    "alpha": alpha,
+                    "command": cmd,
+                }
+                conf = {k: conf[k] for k in OUT_JSON_ORDER if k in conf.keys()}
+                with open(final_rec_json, "w") as f:
+                    json.dump(conf, f, indent=4)
         except Exception:
             msg = f"{sub_path} - {ses_path} failed:\n{traceback.format_exc()}"
             print(msg)

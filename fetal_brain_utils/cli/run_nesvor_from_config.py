@@ -83,13 +83,14 @@ def filter_run_list(stacks, run_list):
     return [run_dict[s] for s in stacks]
 
 
-def crop_input(sub, ses, output_path, img_list, mask_list):
+def crop_input(sub, ses, output_path, img_list, mask_list, fake_run):
     import nibabel as ni
     from fetal_brain_utils import get_cropped_stack_based_on_mask
     from functools import partial
 
     sub_ses_output = output_path / f"sub-{sub}/ses-{ses}/anat"
-    os.makedirs(sub_ses_output, exist_ok=True)
+    if not fake_run:
+        os.makedirs(sub_ses_output, exist_ok=True)
 
     boundary_mm = 15
     crop_path = partial(
@@ -102,17 +103,19 @@ def crop_input(sub, ses, output_path, img_list, mask_list):
     for image, mask in zip(img_list, mask_list):
         print(f"Processing {image} {mask}")
         im_file, mask_file = Path(image).name, Path(mask).name
+
         cropped_im_path = sub_ses_output / im_file
         cropped_mask_path = sub_ses_output / mask_file
-        im, m = ni.load(image), ni.load(mask)
+        if not fake_run:
+            im, m = ni.load(image), ni.load(mask)
 
-        imc = crop_path(im, m)
-        maskc = crop_path(m, m)
-        # Masking
-        imc = ni.Nifti1Image(imc.get_fdata() * maskc.get_fdata(), imc.affine)
+            imc = crop_path(im, m)
+            maskc = crop_path(m, m)
+            # Masking
+            imc = ni.Nifti1Image(imc.get_fdata() * maskc.get_fdata(), imc.affine)
 
-        ni.save(imc, cropped_im_path)
-        ni.save(maskc, cropped_mask_path)
+            ni.save(imc, cropped_im_path)
+            ni.save(maskc, cropped_mask_path)
         im_list_c.append(str(cropped_im_path))
         mask_list_c.append(str(cropped_mask_path))
     return im_list_c, mask_list_c
@@ -129,6 +132,7 @@ def iterate_subject(
     target_res,
     single_precision,
     config,
+    fake_run,
 ):
 
     if participant_label:
@@ -137,12 +141,12 @@ def iterate_subject(
     if sub not in bids_layout.get_subjects():
         print(f"Subject {sub} not found in {data_path}")
         return
-
+    output_path = Path(output_path)
     output_path_crop = output_path / "cropped_input"
     output_path = output_path / "nesvor"
     masks_layout = BIDSLayout(mask_base_path, validate=False)
-
-    os.makedirs(output_path, exist_ok=True)
+    if not fake_run:
+        os.makedirs(output_path, exist_ok=True)
 
     sub_path = f"sub-{sub}"
     if not isinstance(config_sub, list):
@@ -181,9 +185,18 @@ def iterate_subject(
             output_sub_ses = output_path / sub_path / ses_path / "anat"
         else:
             output_sub_ses = output_path / sub_path / "anat"
-        os.makedirs(output_sub_ses, exist_ok=True)
 
-        img_list, mask_list = crop_input(sub, ses, output_path_crop, img_list, mask_list)
+        if not fake_run:
+            os.makedirs(output_sub_ses, exist_ok=True)
+
+        img_list, mask_list = crop_input(
+            sub,
+            ses,
+            output_path_crop,
+            img_list,
+            mask_list,
+            fake_run,
+        )
 
         # Get in-plane resolution to be set as target resolution.
         img_str = " ".join([str(im) for im in img_list])
@@ -205,7 +218,7 @@ def iterate_subject(
                     f"--output-volume {output_file} "
                     f"--output-resolution {res} "
                     f"--output-model {model} "
-                    f"--batch-size {BATCH_SIZE} "
+                    f"--batch-size {BATCH_SIZE}"
                 )
             else:
                 cmd = (
@@ -220,27 +233,28 @@ def iterate_subject(
                 cmd += " --single-precision"
 
             print(cmd)
-            os.system(cmd)
+            if not fake_run:
+                os.system(cmd)
 
-            # Transform the affine of the sr reconstruction
-            sr = ni.load(output_file)
-            affine = sr.affine[[2, 1, 0, 3]]
-            affine[1, :] *= -1
-            ni.save(
-                ni.Nifti1Image(sr.get_fdata()[:, :, :], affine, sr.header),
-                output_file,
-            )
+                # Transform the affine of the sr reconstruction
+                sr = ni.load(output_file)
+                affine = sr.affine[[2, 1, 0, 3]]
+                affine[1, :] *= -1
+                ni.save(
+                    ni.Nifti1Image(sr.get_fdata()[:, :, :], affine, sr.header),
+                    output_file,
+                )
 
-            conf["info"] = {
-                "reconstruction": "NeSVoR",
-                "res": res,
-                "model": str(model),
-                "command": cmd,
-            }
-            conf = {k: conf[k] for k in OUT_JSON_ORDER if k in conf.keys()}
+                conf["info"] = {
+                    "reconstruction": "NeSVoR",
+                    "res": res,
+                    "model": str(model),
+                    "command": cmd,
+                }
+                conf = {k: conf[k] for k in OUT_JSON_ORDER if k in conf.keys()}
 
-            with open(output_json, "w") as f:
-                json.dump(conf, f, indent=4)
+                with open(output_json, "w") as f:
+                    json.dump(conf, f, indent=4)
 
 
 def main():
@@ -296,6 +310,13 @@ def main():
         default=False,
         help="Whether single precision should be used for training (by default, half precision is used.)",
     )
+
+    p.add_argument(
+        "--fake_run",
+        action="store_true",
+        default=False,
+        help="Whether to only print the commands instead of running them",
+    )
     args = p.parse_args()
 
     data_path = Path(args.data_path).resolve()
@@ -319,6 +340,7 @@ def main():
         target_res=args.target_res,
         single_precision=args.single_precision,
         config=config,
+        fake_run=args.fake_run,
     )
     for sub, config_sub in params.items():
         iterate(sub, config_sub)

@@ -112,6 +112,7 @@ def main(argv=None):
     import os
     import time
     from pathlib import Path
+    from .parser import get_default_parser
     import argparse
     import sys
 
@@ -121,16 +122,7 @@ def main(argv=None):
     DOCKER_VERSION = "v2.1.0-dev"
 
     PATH_TO_ATLAS = "/media/tsanchez/tsanchez_data/data/atlas"
-    DATA_PATH = Path("/media/tsanchez/tsanchez_data/data/data")
-
-    p = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    p.add_argument(
-        "--data_path",
-        default=DATA_PATH,
-        help="Path where the data are located",
-    )
+    p = get_default_parser("MIALSRTK")
     p.add_argument(
         "--docker_version",
         default=DOCKER_VERSION,
@@ -151,25 +143,9 @@ def main(argv=None):
         help="Run with automated masks",
     )
     p.add_argument(
-        "--participant_label",
-        help="The label(s) of the participant(s) that should be analyzed.",
-        nargs="+",
-    )
-    p.add_argument(
         "--txt_to",
         default=None,
         help="Where the text output is stored. By default, it is output to " "the command line.",
-    )
-    p.add_argument(
-        "--param_file",
-        default=None,
-        help="Where the json parameters are stored, relatively from code/ ",
-    )
-    p.add_argument("--out_folder", default=None, help="Where the results are stored.")
-    p.add_argument(
-        "--masks_derivatives_dir",
-        default=None,
-        help="Where the masks are stored (absolute path).",
     )
     p.add_argument(
         "--labels_derivatives_dir",
@@ -201,13 +177,6 @@ def main(argv=None):
         help="Whether missing masks should be replaced with automated masks.",
     )
 
-    p.add_argument(
-        "--fake_run",
-        action="store_true",
-        default=False,
-        help="Whether to only print the commands instead of running them",
-    )
-
     args = p.parse_args(argv)
 
     data_path = Path(args.data_path).absolute()
@@ -216,9 +185,9 @@ def main(argv=None):
     participant_label = args.participant_label
     automated = args.automated
     txt_to = args.txt_to
-    param_file = args.param_file
-    out_folder = args.out_folder
-    masks_derivatives_dir = args.masks_derivatives_dir
+    param_file = args.config
+    out_folder = args.out_path
+    masks_derivatives_dir = args.masks_path
     labels_derivatives_dir = args.labels_derivatives_dir
     complement_missing_masks = args.complement_missing_masks
     if masks_derivatives_dir:

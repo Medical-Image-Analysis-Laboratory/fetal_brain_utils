@@ -139,7 +139,6 @@ def iter_dir(
         Whether only the files with run- should be added.
         Filtering out some additional files in the anat folder.
     """
-    print("Checking ", dir)
     dir = Path(dir)
     subject_dict = dict()
     for subject in sorted(dir.iterdir()):

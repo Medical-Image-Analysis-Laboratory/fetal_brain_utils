@@ -1,13 +1,13 @@
-usage: __main__.py [-h] [--data_path DATA_PATH] --masks_folder MASKS_FOLDER --out_path OUT_PATH --config CONFIG [--participant_label PARTICIPANT_LABEL [PARTICIPANT_LABEL ...]] [--fake_run]
+usage: __main__.py [-h] --data_path DATA_PATH --masks_path MASKS_PATH --config CONFIG --out_path OUT_PATH [--participant_label PARTICIPANT_LABEL [PARTICIPANT_LABEL ...]] [--fake_run]
 
 optional arguments:
   -h, --help            show this help message and exit
   --data_path DATA_PATH
-                        Path where the data are located (default: /media/tsanchez/tsanchez_data/data/data)
-  --masks_folder MASKS_FOLDER
-                        Folder where the masks are located. (default: None)
-  --out_path OUT_PATH   Folder where the output will be stored. (default: None)
-  --config CONFIG       Config path. (default: None)
+                        Path where the data are located (default: None)
+  --masks_path MASKS_PATH
+                        Where the masks are stored (absolute path). (default: None)
+  --config CONFIG       Where the json parameters are stored, relatively from code/ (default: None)
+  --out_path OUT_PATH   Where the results are stored. (default: None)
   --participant_label PARTICIPANT_LABEL [PARTICIPANT_LABEL ...]
-                        Label of the participant (default: None)
+                        The label(s) of the participant(s) that should be analyzed. (default: None)
   --fake_run            Whether to only print the commands instead of running them (default: False)

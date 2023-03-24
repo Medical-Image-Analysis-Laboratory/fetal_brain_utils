@@ -1,19 +1,17 @@
-usage: __main__.py [-h] [--data_path DATA_PATH] [--masks_derivatives_dir MASKS_DERIVATIVES_DIR] [--participant_label PARTICIPANT_LABEL [PARTICIPANT_LABEL ...]] [--param_file PARAM_FILE]
-                    [--out_folder OUT_FOLDER] [--fake_run] [--docker_version DOCKER_VERSION] [--run_type {sr,preprocessing}] [--automated] [--txt_to TXT_TO]
-                    [--labels_derivatives_dir LABELS_DERIVATIVES_DIR] [--pymialsrtk_path PYMIALSRTK_PATH] [--verbose] [--no_python_mount] [--complement_missing_masks]
+usage: __main__.py [-h] --data_path DATA_PATH --masks_path MASKS_PATH --config CONFIG --out_path OUT_PATH [--participant_label PARTICIPANT_LABEL [PARTICIPANT_LABEL ...]] [--fake_run]
+                    [--docker_version DOCKER_VERSION] [--run_type {sr,preprocessing}] [--automated] [--txt_to TXT_TO] [--labels_derivatives_dir LABELS_DERIVATIVES_DIR]
+                    [--pymialsrtk_path PYMIALSRTK_PATH] [--verbose] [--no_python_mount] [--complement_missing_masks]
 
 optional arguments:
   -h, --help            show this help message and exit
   --data_path DATA_PATH
                         Path where the data are located (default: None)
-  --masks_derivatives_dir MASKS_DERIVATIVES_DIR
+  --masks_path MASKS_PATH
                         Where the masks are stored (absolute path). (default: None)
+  --config CONFIG       Where the json parameters are stored, relatively from code/ (default: None)
+  --out_path OUT_PATH   Where the results are stored. (default: None)
   --participant_label PARTICIPANT_LABEL [PARTICIPANT_LABEL ...]
                         The label(s) of the participant(s) that should be analyzed. (default: None)
-  --param_file PARAM_FILE
-                        Where the json parameters are stored, relatively from code/ (default: None)
-  --out_folder OUT_FOLDER
-                        Where the results are stored. (default: None)
   --fake_run            Whether to only print the commands instead of running them (default: False)
   --docker_version DOCKER_VERSION
                         Docker version of the pipeline used. (default: v2.1.0-dev)

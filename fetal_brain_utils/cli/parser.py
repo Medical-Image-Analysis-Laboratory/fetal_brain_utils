@@ -8,26 +8,28 @@ def get_default_parser():
     p.add_argument(
         "--data_path",
         default=None,
+        required=True,
         help="Path where the data are located",
     )
     p.add_argument(
-        "--masks_derivatives_dir",
+        "--masks_path",
         default=None,
+        required=True,
         help="Where the masks are stored (absolute path).",
     )
+
+    p.add_argument(
+        "--config",
+        default=None,
+        required=True,
+        help="Where the json parameters are stored, relatively from code/ ",
+    )
+    p.add_argument("--out_path", default=None, required=True, help="Where the results are stored.")
     p.add_argument(
         "--participant_label",
         help="The label(s) of the participant(s) that should be analyzed.",
         nargs="+",
     )
-
-    p.add_argument(
-        "--param_file",
-        default=None,
-        help="Where the json parameters are stored, relatively from code/ ",
-    )
-
-    p.add_argument("--out_folder", default=None, help="Where the results are stored.")
 
     p.add_argument(
         "--fake_run",

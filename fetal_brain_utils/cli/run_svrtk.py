@@ -204,52 +204,14 @@ def iterate_subject(
 
 
 def main(argv=None):
+    from .parser import get_default_parser
 
-    p = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    p.add_argument(
-        "--data_path",
-        default=DATA_PATH,
-        help="Path where the data are located",
-    )
+    p = get_default_parser()
 
-    p.add_argument(
-        "--masks_folder",
-        required=True,
-        help="Folder where the masks are located.",
-    )
-
-    p.add_argument(
-        "--out_path",
-        required=True,
-        help="Folder where the output will be stored.",
-    )
-
-    p.add_argument(
-        "--config",
-        help="Config path.",
-        required=True,
-        type=str,
-    )
-
-    p.add_argument(
-        "--participant_label",
-        default=None,
-        help="Label of the participant",
-        nargs="+",
-    )
-
-    p.add_argument(
-        "--fake_run",
-        action="store_true",
-        default=False,
-        help="Whether to only print the commands instead of running them",
-    )
     args = p.parse_args(argv)
     data_path = Path(args.data_path).resolve()
     config = Path(args.config).resolve()
-    masks_folder = Path(args.masks_folder).resolve()
+    masks_folder = Path(args.masks_path).resolve()
     out_path = Path(args.out_path).resolve()
     participant_label = args.participant_label
     fake_run = args.fake_run

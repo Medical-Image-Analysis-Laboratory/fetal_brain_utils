@@ -185,9 +185,9 @@ def main(argv=None):
     participant_label = args.participant_label
     automated = args.automated
     txt_to = args.txt_to
-    param_file = args.param_file
-    out_folder = args.out_folder
-    masks_derivatives_dir = args.masks_derivatives_dir
+    param_file = args.config
+    out_folder = args.out_path
+    masks_derivatives_dir = args.masks_path
     labels_derivatives_dir = args.labels_derivatives_dir
     complement_missing_masks = args.complement_missing_masks
     if masks_derivatives_dir:

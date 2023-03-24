@@ -107,7 +107,7 @@ def merge_and_overwrite_folder(src, dest):
         os.rmdir(path)
 
 
-def main():
+def main(argv=None):
 
     import os
     import time
@@ -190,7 +190,7 @@ def main():
     p.add_argument(
         "--no_python_mount",
         action="store_true",
-        default=False,
+        default=True,
         help="Whether the python folder should not be mounted.",
     )
 
@@ -200,7 +200,15 @@ def main():
         default=False,
         help="Whether missing masks should be replaced with automated masks.",
     )
-    args = p.parse_args()
+
+    p.add_argument(
+        "--fake_run",
+        action="store_true",
+        default=False,
+        help="Whether to only print the commands instead of running them",
+    )
+
+    args = p.parse_args(argv)
 
     data_path = Path(args.data_path).absolute()
     docker_version = args.docker_version
@@ -237,7 +245,8 @@ def main():
         out_folder = f"derivatives/{run_type}_{mask_str}"
         out_folder = data_path / out_folder
     out_folder = Path(out_folder).absolute()
-    os.makedirs(out_folder, exist_ok=True)
+    if not args.fake_run:
+        os.makedirs(out_folder, exist_ok=True)
     auto_dict = None
     if complement_missing_masks:
         assert masks_derivatives_dir is not None, (
@@ -250,7 +259,6 @@ def main():
             out_folder / "masks",
         )
         masks_derivatives_dir = out_folder / "masks"
-        print(auto_dict)
 
     if param_file:
         param_file = Path(param_file).absolute()
@@ -275,7 +283,6 @@ def main():
     if labels_derivatives_dir is not None:
         base_command += f" -v {labels_derivatives_dir}:/labels"
     if param_file:
-        print(param_file.parent.absolute())
         base_command += f" -v {param_file.parent}:/code"
     base_command += (
         f" -v {PATH_TO_ATLAS}:/sta"
@@ -302,20 +309,22 @@ def main():
         base_command += f" > {txt_to}"
     time_base = time.time()
     print(base_command)
-    os.system(base_command)
-    print(f"Total elapsed time: {time.time()-time_base}")
+    if not args.fake_run:
+        os.system(base_command)
+        print(f"Total elapsed time: {time.time()-time_base}")
     out_final = out_folder / f"{out_folder.name}"
 
-    # Renaming the pymialsrtk output to a folder with the same name as the output folder.
-    merge_and_overwrite_folder(out_folder / f"pymialsrtk-{DOCKER_VERSION[1:]}", out_final)
+    if not args.fake_run:
+        # Renaming the pymialsrtk output to a folder with the same name as the output folder.
+        merge_and_overwrite_folder(out_folder / f"pymialsrtk-{DOCKER_VERSION[1:]}", out_final)
 
-    edit_output_json(
-        out_final,
-        param_file.absolute(),
-        base_command,
-        auto_dict,
-        participant_label,
-    )
+        edit_output_json(
+            out_final,
+            param_file.absolute(),
+            base_command,
+            auto_dict,
+            participant_label,
+        )
 
 
 if __name__ == "__main__":

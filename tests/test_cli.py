@@ -11,6 +11,10 @@ from fetal_brain_utils.cli.run_nesvor_from_config import (
     iterate_subject as run_nesvor,
     main as main_nesvor,
 )
+
+from fetal_brain_utils.cli.run_mialsrtk import (
+    main as main_mialsrtk,
+)
 import json
 from bids import BIDSLayout
 from pathlib import Path
@@ -26,6 +30,39 @@ def read_and_replace_txt(file_path):
     with open(file_path) as f:
         txt = f.readlines()
     return "".join(txt).replace("<PATH>", str(FILE_DIR))
+
+
+def remove_blanks(str):
+    return str.replace("\n", "").replace(" ", "")
+
+
+def test_mialsrtk(capsys):
+    """Test the text output of run_mialsrtk."""
+    main_mialsrtk(
+        [
+            "--data_path",
+            str(BIDS_DIR),
+            "--param_file",
+            str(CONFIG_PATH),
+            "--masks_derivatives_dir",
+            str(MASKS_DIR),
+            "--out_folder",
+            "out",
+            "--fake_run",
+        ]
+    )
+    captured = capsys.readouterr()
+    mialsrtk = read_and_replace_txt(FILE_DIR / "output/mialsrtk_main.txt")
+    print(f"{captured.out}")
+    assert captured.out == mialsrtk
+
+
+def test_mialsrtk_interface(capsys):
+    with pytest.raises(SystemExit):
+        main_mialsrtk(["-h"])
+    captured = capsys.readouterr()
+    mialsrtk = read_and_replace_txt(FILE_DIR / "output/mialsrtk_main_help.txt")
+    assert remove_blanks(captured.out) == remove_blanks(mialsrtk)
 
 
 def test_niftymic_iterate_subject(capsys):
@@ -55,10 +92,6 @@ def test_niftymic_iterate_subject(capsys):
     niftymic = read_and_replace_txt(FILE_DIR / "output/niftymic_out.txt")
 
     assert captured.out == niftymic
-
-
-def remove_blanks(str):
-    return str.replace("\n", "").replace(" ", "")
 
 
 def test_niftymic_interface(capsys):

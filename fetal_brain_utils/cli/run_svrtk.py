@@ -206,7 +206,7 @@ def iterate_subject(
 def main(argv=None):
     from .parser import get_default_parser
 
-    p = get_default_parser()
+    p = get_default_parser("SVRTK")
 
     args = p.parse_args(argv)
     data_path = Path(args.data_path).resolve()

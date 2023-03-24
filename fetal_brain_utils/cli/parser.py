@@ -1,28 +1,30 @@
 import argparse
 
 
-def get_default_parser():
+def get_default_parser(srr):
+    """Create a default parser with common inputs between the different reconstruction wrappers."""
     p = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description=f"Parser for wrapper script of {srr}\n This requires to provide data in a BIDS format.",
     )
     p.add_argument(
         "--data_path",
         default=None,
         required=True,
-        help="Path where the data are located",
+        help="Path to the data.",
     )
     p.add_argument(
         "--masks_path",
         default=None,
         required=True,
-        help="Where the masks are stored (absolute path).",
+        help="Path to the brain masks.",
     )
 
     p.add_argument(
         "--config",
         default=None,
         required=True,
-        help="Where the json parameters are stored, relatively from code/ ",
+        help="Path to the configuration file.",
     )
     p.add_argument("--out_path", default=None, required=True, help="Where the results are stored.")
     p.add_argument(

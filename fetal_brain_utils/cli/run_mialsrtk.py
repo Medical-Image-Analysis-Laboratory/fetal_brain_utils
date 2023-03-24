@@ -122,7 +122,7 @@ def main(argv=None):
     DOCKER_VERSION = "v2.1.0-dev"
 
     PATH_TO_ATLAS = "/media/tsanchez/tsanchez_data/data/atlas"
-    p = get_default_parser()
+    p = get_default_parser("MIALSRTK")
     p.add_argument(
         "--docker_version",
         default=DOCKER_VERSION,

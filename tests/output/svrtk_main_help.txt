@@ -1,12 +1,14 @@
 usage: __main__.py [-h] --data_path DATA_PATH --masks_path MASKS_PATH --config CONFIG --out_path OUT_PATH [--participant_label PARTICIPANT_LABEL [PARTICIPANT_LABEL ...]] [--fake_run]
 
+Parser for wrapper script of SVRTK This requires to provide data in a BIDS format.
+
 optional arguments:
   -h, --help            show this help message and exit
   --data_path DATA_PATH
-                        Path where the data are located (default: None)
+                        Path to the data. (default: None)
   --masks_path MASKS_PATH
-                        Where the masks are stored (absolute path). (default: None)
-  --config CONFIG       Where the json parameters are stored, relatively from code/ (default: None)
+                        Path to the brain masks. (default: None)
+  --config CONFIG       Path to the configuration file. (default: None)
   --out_path OUT_PATH   Where the results are stored. (default: None)
   --participant_label PARTICIPANT_LABEL [PARTICIPANT_LABEL ...]
                         The label(s) of the participant(s) that should be analyzed. (default: None)

@@ -259,7 +259,7 @@ def iterate_subject(
 def main(argv=None):
     from .parser import get_default_parser
 
-    p = get_default_parser()
+    p = get_default_parser("NiftyMIC")
 
     p.add_argument(
         "--alpha",

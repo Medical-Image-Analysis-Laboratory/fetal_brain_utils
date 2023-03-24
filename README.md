@@ -1,3 +1,6 @@
+![fetal_brain_utils](https://github.com/Medical-Image-Analysis-Laboratory/fetal_brain_utils/actions/workflows/python.yml/badge.svg)
+
+
 # Readme
 This repo is still much of a WIP.
 - In particular, it uses various conventions for reading BIDS directories (csv listing, bidslayout, `sub_ses_dict`). This should be harmonized. 

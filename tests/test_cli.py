@@ -53,7 +53,7 @@ def test_mialsrtk(capsys):
             "--masks_path",
             str(MASKS_DIR),
             "--out_path",
-            "out",
+            str(OUT_PATH),
             "--fake_run",
         ]
     )

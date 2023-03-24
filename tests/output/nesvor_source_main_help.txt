@@ -1,0 +1,17 @@
+usage: __main__.py [-h] [--data_path DATA_PATH] --masks_folder MASKS_FOLDER --out_path OUT_PATH [--config CONFIG] [--participant_label PARTICIPANT_LABEL [PARTICIPANT_LABEL ...]] --target_res TARGET_RES
+                  [TARGET_RES ...] [--single_precision] [--fake_run]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --data_path DATA_PATH
+                        Path where the data are located (default: /media/tsanchez/tsanchez_data/data/data)
+  --masks_folder MASKS_FOLDER
+                        Folder where the masks are located. (default: None)
+  --out_path OUT_PATH   Folder where the output will be stored. (default: None)
+  --config CONFIG       Config path in data_path/code (default: `params.json`) (default: params.json)
+  --participant_label PARTICIPANT_LABEL [PARTICIPANT_LABEL ...]
+                        Label of the participant (default: None)
+  --target_res TARGET_RES [TARGET_RES ...]
+                        Target resolutions at which the reconstruction should be done. (default: None)
+  --single_precision    Whether single precision should be used for training (by default, half precision is used.) (default: False)
+  --fake_run            Whether to only print the commands instead of running them (default: False)

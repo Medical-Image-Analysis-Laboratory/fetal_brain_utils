@@ -4,10 +4,12 @@ from fetal_brain_utils.cli.run_niftymic import (
 )
 from fetal_brain_utils.cli.run_svrtk import (
     iterate_subject as run_svrtk,
+    main as main_svrtk,
 )
 
 from fetal_brain_utils.cli.run_nesvor_from_config import (
     iterate_subject as run_nesvor,
+    main as main_nesvor,
 )
 import json
 from bids import BIDSLayout
@@ -93,6 +95,14 @@ def test_svrtk_iterate_subject(capsys):
     assert captured.out == svrtk
 
 
+def test_svrtk_interface(capsys):
+    with pytest.raises(SystemExit):
+        main_svrtk(["-h"])
+    captured = capsys.readouterr()
+    svrtk = read_and_replace_txt(FILE_DIR / "output/svrtk_main_help.txt")
+    assert remove_blanks(captured.out) == remove_blanks(svrtk)
+
+
 def test_nesvor_source_iterate_subject(capsys):
     """Test the text output of run_nesvor_from_config."""
     with open(CONFIG_PATH, "r") as f:
@@ -119,3 +129,11 @@ def test_nesvor_source_iterate_subject(capsys):
     captured = capsys.readouterr()
     nesvor = read_and_replace_txt(FILE_DIR / "output/nesvor_source_out.txt")
     assert captured.out == nesvor
+
+
+def test_nesvor_source_interface(capsys):
+    with pytest.raises(SystemExit):
+        main_nesvor(["-h"])
+    captured = capsys.readouterr()
+    nesvor = read_and_replace_txt(FILE_DIR / "output/nesvor_source_main_help.txt")
+    assert remove_blanks(captured.out) == remove_blanks(nesvor)

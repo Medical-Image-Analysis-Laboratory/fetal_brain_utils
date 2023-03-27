@@ -16,6 +16,7 @@ from fetal_brain_utils import (
 from fetal_brain_utils import (
     filter_and_complement_mask_list as filter_mask_list,
 )
+import csv
 import re
 from fetal_brain_utils.definitions import OUT_JSON_ORDER
 import argparse
@@ -190,7 +191,7 @@ def iterate_subject(
             # Replace input and mask path by preprocessed
             input_path, mask_path = input_cropped_path, mask_cropped_path
             cmd = (
-                f"docker run -v {input_path}:/data " #-u $(id -u):$(id -g)
+                f"docker run -v {input_path}:/data " #-u $(id -u):$(id -g)                
                 f"-v {mask_path}:/seg "
                 f"-v {recon_path}:/srr "
                 f"-v /media/paul/data/paul/fetal_uncertainty_reconstruction/reconstruction_methods/NiftyMIC/niftymic:/app/NiftyMIC/niftymic "
@@ -236,6 +237,31 @@ def iterate_subject(
                 recon_path / "recon_template_space/srr_template_mask.nii.gz",
                 final_mask,
             )
+            
+            #### UNRESTRICT ACCESS TO REJECTED SLICES FILE
+
+            output_file_path = Path("../../out/niftymic/test_output_dir/rejected_slices.csv")
+            accessible_file_path = Path("../../out/niftymic/test_output_dir/rejected_slices_accessible.csv")
+
+
+            try :
+                with open(accessible_file_path, 'x') as access_file:
+                    with open(output_file_path, 'r') as out_file:
+                        reader = csv.reader(out_file)
+                        writer = csv.reader(access_file)
+                        for row in reader:
+                            writer.writerow(row)
+            except:
+                with open(accessible_file_path, 'w') as access_file:
+                    with open(output_file_path, 'r') as out_file:
+                        reader = csv.reader(out_file)
+                        writer = csv.reader(access_file)
+                        for row in reader:
+                            writer.writerow(row)
+                            
+            os.remove(output_file_path)                
+            ####
+
 
             conf["info"] = {
                 "reconstruction": "NiftyMIC",
@@ -359,5 +385,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# TEST REMOTE BRANCH

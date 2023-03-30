@@ -243,19 +243,21 @@ def iterate_subject(
             output_file_path = Path("../../out/niftymic/test_output_dir/rejected_slices.csv")
             accessible_file_path = Path("../../out/niftymic/test_output_dir/rejected_slices_accessible.csv")
 
-
+            out_parameters_name = ["slice_ID", "stack", "stack_filename", "cycle", "measure", "threshold", "NCC value", "just_rejected", "rejected"]
             try :
                 with open(accessible_file_path, 'x') as access_file:
+                    writer = csv.writer(access_file)
+                    writer.writerow(out_parameters_name)
                     with open(output_file_path, 'r') as out_file:
                         reader = csv.reader(out_file)
-                        writer = csv.writer(access_file)
                         for row in reader:
                             writer.writerow(row)
             except:
                 with open(accessible_file_path, 'w') as access_file:
+                    writer = csv.writer(access_file)
+                    writer.writerow(out_parameters_name)
                     with open(output_file_path, 'r') as out_file:
                         reader = csv.reader(out_file)
-                        writer = csv.writer(access_file)
                         for row in reader:
                             writer.writerow(row)
                             

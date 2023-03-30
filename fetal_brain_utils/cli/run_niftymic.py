@@ -248,14 +248,14 @@ def iterate_subject(
                 with open(accessible_file_path, 'x') as access_file:
                     with open(output_file_path, 'r') as out_file:
                         reader = csv.reader(out_file)
-                        writer = csv.reader(access_file)
+                        writer = csv.writer(access_file)
                         for row in reader:
                             writer.writerow(row)
             except:
                 with open(accessible_file_path, 'w') as access_file:
                     with open(output_file_path, 'r') as out_file:
                         reader = csv.reader(out_file)
-                        writer = csv.reader(access_file)
+                        writer = csv.writer(access_file)
                         for row in reader:
                             writer.writerow(row)
                             

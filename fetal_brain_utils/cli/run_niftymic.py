@@ -191,11 +191,10 @@ def iterate_subject(
             # Replace input and mask path by preprocessed
             input_path, mask_path = input_cropped_path, mask_cropped_path
             cmd = (
-                f"docker run -v {input_path}:/data " #-u $(id -u):$(id -g)                
+                f"docker run -v {input_path}:/data " #               
                 f"-v {mask_path}:/seg "
                 f"-v {recon_path}:/srr "
                 f"-v /media/paul/data/paul/fetal_uncertainty_reconstruction/reconstruction_methods/NiftyMIC/niftymic:/app/NiftyMIC/niftymic "
-                f"-v /media/paul/data/paul/out/niftymic/test_output_dir:/test_output_dir "
                 f"renbem/niftymic python "
                 f"{RECONSTRUCTION_PYTHON} "
                 f"--filenames {filename_data} "
@@ -224,6 +223,7 @@ def iterate_subject(
             out_path = output_path / "niftymic" / sub_path / ses_path / "anat"
             os.makedirs(out_path, exist_ok=True)
             final_base = str(out_path / f"{sub_path}_{ses_path}_{run_path}_SR_T2w")
+            final_reject = final_base + "_rejected_slices.csv"
             final_rec = final_base + ".nii.gz"
             final_rec_json = final_base + ".json"
             final_mask = final_base + "_mask.nii.gz"
@@ -238,31 +238,28 @@ def iterate_subject(
                 final_mask,
             )
             
-            #### UNRESTRICT ACCESS TO REJECTED SLICES FILE
+            shutil.copyfile(
+                recon_path / "recon_template_space/srr_rejected_slices.csv",
+                final_reject,
+            )
 
-            output_file_path = Path("../../out/niftymic/test_output_dir/rejected_slices.csv")
-            accessible_file_path = Path("../../out/niftymic/test_output_dir/rejected_slices_accessible.csv")
 
-            out_parameters_name = ["slice_ID", "stack", "stack_filename", "cycle", "measure", "threshold", "NCC value", "just_rejected", "rejected"]
-            try :
-                with open(accessible_file_path, 'x') as access_file:
-                    writer = csv.writer(access_file)
-                    writer.writerow(out_parameters_name)
-                    with open(output_file_path, 'r') as out_file:
-                        reader = csv.reader(out_file)
-                        for row in reader:
-                            writer.writerow(row)
-            except:
-                with open(accessible_file_path, 'w') as access_file:
-                    writer = csv.writer(access_file)
-                    writer.writerow(out_parameters_name)
-                    with open(output_file_path, 'r') as out_file:
-                        reader = csv.reader(out_file)
-                        for row in reader:
-                            writer.writerow(row)
-                            
-            os.remove(output_file_path)                
-            ####
+            ###################### UNRESTRICT ACCESS TO REJECTED SLICES FILE ########################
+#
+ #           output_file_path = Path("../../out/niftymic/test_output_dir/rejected_slices.csv")
+  #          accessible_file_path = Path("../../out/niftymic/test_output_dir/rejected_slices_accessible.csv")
+#
+ #           out_parameters_name = ["slice_ID", "stack", "stack_filename", "cycle", "measure", "threshold", "NCC_value", "just_rejected", "rejected"]
+  #          with open(accessible_file_path, 'w') as access_file:
+   #             writer = csv.writer(access_file)
+    #            writer.writerow(out_parameters_name)
+     #           with open(output_file_path, 'r') as out_file:
+      #              reader = csv.reader(out_file)
+       #             for row in reader:
+        #                writer.writerow(row)
+         #   os.remove(output_file_path)
+
+            ########################################################################################
 
 
             conf["info"] = {

@@ -12,6 +12,7 @@ import json
 import re
 from bids import BIDSLayout
 import nibabel as ni
+import subprocess
 
 # Only use device_id=1 (device_id=0 not very efficient)
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
@@ -211,22 +212,25 @@ def iterate_subject(
             output_file = str(output_str) + ".nii.gz"
             output_json = str(output_str) + ".json"
             if i == 0:
+                print("CHECKING NESVOR")
+                os.system("which nesvor")
                 cmd = (
-                    f"nesvor reconstruct "
+                    f"CUDA_VISIBLE_DEVICES=0 nesvor reconstruct "
                     f"--input-stacks {img_str} "
                     f"--stack-masks {mask_str} "
                     f"--output-volume {output_file} "
+                    f"--n-levels-bias 1 "
                     f"--output-resolution {res} "
                     f"--output-model {model} "
-                    f"--batch-size {BATCH_SIZE}"
+                    f"--batch-size {BATCH_SIZE} "
+                    "--weight-image 0"
                 )
             else:
                 cmd = (
-                    f"nesvor sample-volume "
+                    f"CUDA_VISIBLE_DEVICES=0 nesvor sample-volume "
                     f"--input-model {model} "
                     f"--output-resolution {res} "
                     f"--output-volume {output_file} "
-                    f"--output-resolution {res} "
                     f"--inference-batch-size 16384"
                 )
             if single_precision:
@@ -286,7 +290,7 @@ def main(argv=None):
 
     # Load a dictionary of subject-session-paths
     # sub_ses_dict = iter_dir(data_path, add_run_only=True)
-    bids_layout = BIDSLayout(data_path, validate=True)
+    bids_layout = BIDSLayout(data_path, validate=False)
     with open(data_path / "code" / config, "r") as f:
         params = json.load(f)
     # Iterate over all subjects and sessions

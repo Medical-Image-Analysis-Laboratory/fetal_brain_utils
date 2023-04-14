@@ -2,6 +2,7 @@ import copy
 import numpy as np
 import nibabel as ni
 from .definitions import AUTO_MASK_PATH
+from .utils import squeeze_dim
 
 
 def get_cropped_stack_based_on_mask(
@@ -34,8 +35,14 @@ def get_cropped_stack_based_on_mask(
     """
 
     image_ni = copy.deepcopy(image_ni)
-    image = image_ni.get_fdata().squeeze()
-    mask = mask_ni.get_fdata().squeeze()
+
+    image = squeeze_dim(image_ni.get_fdata(), -1)
+    mask = squeeze_dim(mask_ni.get_fdata(), -1)
+
+    assert all(
+        [i >= m] for i, m in zip(image.shape, mask.shape)
+    ), "For a correct cropping, the image should be larger or equal to the mask."
+
     # Get rectangular region surrounding the masked voxels
     [x_range, y_range, z_range] = get_rectangular_masked_region(mask)
 
@@ -49,7 +56,7 @@ def get_cropped_stack_based_on_mask(
         boundary_j = np.round(boundary_j / float(spacing[1]))
         boundary_k = np.round(boundary_k / float(spacing[2]))
 
-    shape = image.shape
+    shape = [min(im, m) for im, m in zip(image.shape, mask.shape)]
     x_range[0] = np.max([0, x_range[0] - boundary_i])
     x_range[1] = np.min([shape[0], x_range[1] + boundary_i])
 
@@ -58,7 +65,6 @@ def get_cropped_stack_based_on_mask(
 
     z_range[0] = np.max([0, z_range[0] - boundary_k])
     z_range[1] = np.min([shape[2], z_range[1] + boundary_k])
-    # Crop to image region defined by rectangular mask
 
     new_origin = list(
         ni.affines.apply_affine(mask_ni.affine, [x_range[0], y_range[0], z_range[0]])

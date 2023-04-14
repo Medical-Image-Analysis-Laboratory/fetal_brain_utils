@@ -202,35 +202,5 @@ def main():
         bids_to_nnunet_test(bids_layout, args.dataset_num)
 
 
-# Functions for resampling. To be implemented later.
-# # Get the current spacing (resolution) of the image
-# current_spacing = image.GetSpacing()
-
-# # Define the target resolution
-# target_spacing = [1.0, 1.0, 3.0]  # [x, y, z] in mm
-
-# # Calculate the resampling factor
-# resampling_factor = [current_spacing[i] / target_spacing[i] for i in range(3)]
-
-# # Define the resampled size
-# resampled_size = [int(image.GetSize()[i] * resampling_factor[i]) for i in range(3)]
-
-# # Create the resampler object
-# resampler = sitk.ResampleImageFilter()
-
-# # Set the resampling parameters
-# resampler.SetOutputSpacing(target_spacing)
-# resampler.SetSize(resampled_size)
-# resampler.SetOutputDirection(image.GetDirection())
-# resampler.SetOutputOrigin(image.GetOrigin())
-# resampler.SetInterpolator(sitk.sitkLinear)  # Use linear interpolation
-
-# # Resample the image
-# resampled_image = resampler.Execute(image)
-
-# # Save the resampled image
-# resampled_image_path = "path/to/resampled_image.nii.gz"
-# sitk.WriteImage(resampled_image, resampled_image_path)
-
 if __name__ == "__main__":
     main()

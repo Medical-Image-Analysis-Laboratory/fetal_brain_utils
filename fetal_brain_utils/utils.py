@@ -38,10 +38,20 @@ def fill_pattern(bids_layout, sub, ses, run, pattern, suffix="T2w_mask"):
 def get_mask_path(bids_dir, subject, ses, run):
     """Create the target file path from a given
     subject, run and extension.
+    This works without BIDSLayout as the folder bids_dir
+    might not exist.
     """
+    ents = {
+        "subject": subject,
+        "session": ses,
+        "run": run,
+        "datatype": "anat",
+        "acquisition": "haste",
+        "suffix": "T2w_mask",
+        "extension": "nii.gz",
+    }
 
-    bids_layout = BIDSLayout(bids_dir, validate=False)
-    return fill_pattern(bids_layout, subject, ses, run, PATTERN)
+    return build_path(ents, [bids_dir + PATTERN])
 
 
 def find_run_id(file_list):

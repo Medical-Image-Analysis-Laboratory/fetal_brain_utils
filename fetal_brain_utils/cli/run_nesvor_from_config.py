@@ -212,8 +212,6 @@ def iterate_subject(
             output_file = str(output_str) + ".nii.gz"
             output_json = str(output_str) + ".json"
             if i == 0:
-                print("CHECKING NESVOR")
-                os.system("which nesvor")
                 cmd = (
                     f"CUDA_VISIBLE_DEVICES=0 nesvor reconstruct "
                     f"--input-stacks {img_str} "
@@ -223,7 +221,6 @@ def iterate_subject(
                     f"--output-resolution {res} "
                     f"--output-model {model} "
                     f"--batch-size {BATCH_SIZE} "
-                    "--weight-image 0"
                 )
             else:
                 cmd = (

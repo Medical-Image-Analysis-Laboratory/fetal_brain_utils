@@ -73,6 +73,9 @@ def get_cropped_stack_based_on_mask(
     new_affine[:, -1] = new_origin
     image_cropped = crop_image_to_region(image, x_range, y_range, z_range)
     image_cropped = ni.Nifti1Image(image_cropped, new_affine)
+    # image_cropped.header.set_xyzt_units(2)
+    # image_cropped.header.set_qform(new_affine, code="aligned")
+    # image_cropped.header.set_sform(new_affine, code="scanner")
     return image_cropped
 
 

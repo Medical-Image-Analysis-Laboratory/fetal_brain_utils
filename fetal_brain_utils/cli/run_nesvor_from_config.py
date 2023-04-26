@@ -134,6 +134,7 @@ def iterate_subject(
     single_precision,
     config,
     fake_run,
+    save_sigmas,
 ):
 
     if participant_label:
@@ -203,7 +204,7 @@ def iterate_subject(
         img_str = " ".join([str(im) for im in img_list])
         mask_str = " ".join([str(m) for m in mask_list])
         model = output_sub_ses / f"{sub_ses_path}_{run_path}_model.pt"
-
+        sigmas = output_sub_ses / "slices"
         for i, res in enumerate(target_res):
             res_str = str(res).replace(".", "p")
             output_str = (
@@ -222,6 +223,8 @@ def iterate_subject(
                     f"--output-model {model} "
                     f"--batch-size {BATCH_SIZE} "
                 )
+                if save_sigmas:
+                    cmd += f"--simulated-sigmas {sigmas}"
             else:
                 cmd = (
                     f"CUDA_VISIBLE_DEVICES=0 nesvor sample-volume "
@@ -235,6 +238,8 @@ def iterate_subject(
 
             print(cmd)
             if not fake_run:
+                if save_sigmas:
+                    os.makedirs(sigmas, exist_ok=True)
                 os.system(cmd)
 
                 # Transform the affine of the sr reconstruction
@@ -278,6 +283,16 @@ def main(argv=None):
         help="Whether single precision should be used for training (by default, half precision is used.)",
     )
 
+    p.add_argument(
+        "--save_sigmas",
+        action="store_true",
+        default=False,
+        help=(
+            "Whether the uncertainty of slices (along with slices, slices variance and uncertainty variance) should be saved. "
+            "If yes, the result will be saved to the out_path/<sub>/<ses>/anat/slices"
+        ),
+    )
+
     args = p.parse_args(argv)
 
     data_path = Path(args.data_path).resolve()
@@ -302,6 +317,7 @@ def main(argv=None):
         single_precision=args.single_precision,
         config=config,
         fake_run=args.fake_run,
+        save_sigmas=args.save_sigmas,
     )
     for sub, config_sub in params.items():
         iterate(sub, config_sub)

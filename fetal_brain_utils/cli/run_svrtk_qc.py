@@ -102,7 +102,9 @@ def iterate_subject(
             ses_path = f"ses-{ses}" if ses is not None else ""
 
             mask_list, exclude_id = filter_mask_list(stacks, sub, ses, mask_list)
-            excluded_stacks = [i for i, s in zip(img_list, stacks) if s in exclude_id]
+            excluded_stacks = list(
+                find_run_id([i for i, s in zip(img_list, stacks) if s in exclude_id]).keys()
+            )
             stacks = [s for s in stacks if s not in exclude_id]
             img_list = filter_run_list(stacks, img_list)
             conf["im_path"] = img_list
@@ -189,20 +191,18 @@ def iterate_subject(
             with open(recon_path / "stats_summary.txt", "r") as file:
                 data = file.read()
             data = data.replace("\n", "").split(" ")
+
+            stacks_tot = sorted(stacks + excluded_stacks)
+            excluded_stacks += find_run_id(data[2:]) if len(data) > 2 else []
+
             df = pd.DataFrame.from_dict(
                 {
-                    "sub_ses": [f"{sub_path}_{ses_path}"],
-                    "n_stacks": [int(data[0])],
-                    "n_excluded": [int(data[1])],
-                    "excluded_files": [data[2:]] if len(data) > 2 else [[]],
+                    "sub": [sub] * len(stacks_tot),
+                    "ses": [ses] * len(stacks_tot),
+                    "run": stacks_tot,
+                    "excluded": [int(s in excluded_stacks) for s in stacks_tot],
                 }
             )
-
-            if len(excluded_stacks) > 0:
-                df.loc[0, ["n_stacks"]] += len(excluded_stacks)
-                df.loc[0, ["n_excluded"]] += len(excluded_stacks)
-                df.loc[0, "excluded_files"] += excluded_stacks
-            df.loc[0, "excluded_files"] = [Path(f).name for f in df.loc[0, "excluded_files"]]
             out_final = recon_out_path / "stats_summary.csv"
 
             # Read the file as a panda csv

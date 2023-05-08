@@ -65,7 +65,6 @@ def iterate_subject(
     use_preprocessed,
     fake_run,
 ):
-
     if participant_label:
         if sub not in participant_label:
             return
@@ -156,7 +155,6 @@ def iterate_subject(
                 boundary_k=0,
             )
             for image, mask in zip(img_list, mask_list):
-
                 print(f"Processing {image} {mask}")
                 im_file, mask_file = Path(image).name, Path(mask).name
                 cropped_im = input_cropped_path / im_file
@@ -166,17 +164,20 @@ def iterate_subject(
                     imc = crop_path(im, m)
                     maskc = crop_path(m, m)
                     # Masking
-                    imc = ni.Nifti1Image(imc.get_fdata() * maskc.get_fdata(), imc.affine)
 
-                    ni.save(imc, cropped_im)
-                    ni.save(maskc, cropped_mask)
+                    if imc is not None:
+                        imc = ni.Nifti1Image(imc.get_fdata() * maskc.get_fdata(), imc.affine)
+
+                        ni.save(imc, cropped_im)
+                        ni.save(maskc, cropped_mask)
 
                 # Define the file and path names inside the docker volume
-                run_im = Path("/data") / im_file
-                run_mask = Path("/seg") / mask_file
-                filename_data.append(str(run_im))
-                filename_masks.append(str(run_mask))
-                filename_prepro.append("/srr/preprocessing_n4itk/" + os.path.basename(run_im))
+                if imc is not None:
+                    run_im = Path("/data") / im_file
+                    run_mask = Path("/seg") / mask_file
+                    filename_data.append(str(run_im))
+                    filename_masks.append(str(run_mask))
+                    filename_prepro.append("/srr/preprocessing_n4itk/" + os.path.basename(run_im))
             filename_data = " ".join(filename_data)
             filename_masks = " ".join(filename_masks)
             filename_prepro = " ".join(filename_prepro)

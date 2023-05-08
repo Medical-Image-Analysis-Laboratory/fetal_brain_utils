@@ -22,7 +22,7 @@ os.environ["MKL_THREADING_LAYER"] = "GNU"
 DATA_PATH = Path("/media/tsanchez/tsanchez_data/data/data")
 AUTO_MASK_PATH = "/media/tsanchez/tsanchez_data/data/out_anon/masks"
 
-BATCH_SIZE = 8192
+BATCH_SIZE = 4096
 
 
 def get_mask_path(bids_dir, subject, ses, run):
@@ -113,12 +113,17 @@ def crop_input(sub, ses, output_path, img_list, mask_list, fake_run):
             imc = crop_path(im, m)
             maskc = crop_path(m, m)
             # Masking
-            imc = ni.Nifti1Image(imc.get_fdata() * maskc.get_fdata(), imc.affine)
 
+            if imc is None:
+                print(f"Skipping image {im_file} (empty crop)")
+                continue
+            imc = ni.Nifti1Image(imc.get_fdata() * maskc.get_fdata(), imc.affine)
+            print(im_file, imc.shape)
             ni.save(imc, cropped_im_path)
             ni.save(maskc, cropped_mask_path)
-        im_list_c.append(str(cropped_im_path))
-        mask_list_c.append(str(cropped_mask_path))
+        if imc is not None:
+            im_list_c.append(str(cropped_im_path))
+            mask_list_c.append(str(cropped_mask_path))
     return im_list_c, mask_list_c
 
 
@@ -136,7 +141,6 @@ def iterate_subject(
     fake_run,
     save_sigmas,
 ):
-
     if participant_label:
         if sub not in participant_label:
             return
@@ -231,7 +235,7 @@ def iterate_subject(
                     f"--input-model {model} "
                     f"--output-resolution {res} "
                     f"--output-volume {output_file} "
-                    f"--inference-batch-size 16384"
+                    f"--inference-batch-size 4096"  # 16384"
                 )
             if single_precision:
                 cmd += " --single-precision"
@@ -243,13 +247,18 @@ def iterate_subject(
                 os.system(cmd)
 
                 # Transform the affine of the sr reconstruction
-                sr = ni.load(output_file)
-                affine = sr.affine[[2, 1, 0, 3]]
-                affine[1, :] *= -1
-                ni.save(
-                    ni.Nifti1Image(sr.get_fdata()[:, :, :], affine, sr.header),
-                    output_file,
-                )
+
+                if os.path.isfile(output_file):
+                    sr = ni.load(output_file)
+                    affine = sr.affine[[2, 1, 0, 3]]
+                    affine[1, :] *= -1
+                    ni.save(
+                        ni.Nifti1Image(sr.get_fdata()[:, :, :], affine, sr.header),
+                        output_file,
+                    )
+
+                else:
+                    print("WARNING: no output file found.")
 
                 conf["info"] = {
                     "reconstruction": "NeSVoR",
@@ -258,7 +267,6 @@ def iterate_subject(
                     "command": cmd,
                 }
                 conf = {k: conf[k] for k in OUT_JSON_ORDER if k in conf.keys()}
-
                 with open(output_json, "w") as f:
                     json.dump(conf, f, indent=4)
 
@@ -296,14 +304,14 @@ def main(argv=None):
     args = p.parse_args(argv)
 
     data_path = Path(args.data_path).resolve()
-    config = Path(args.config)
+    config = Path(args.config).resolve()
     masks_folder = Path(args.masks_path).resolve()
     out_path = Path(args.out_path).resolve()
 
     # Load a dictionary of subject-session-paths
     # sub_ses_dict = iter_dir(data_path, add_run_only=True)
     bids_layout = BIDSLayout(data_path, validate=False)
-    with open(data_path / "code" / config, "r") as f:
+    with open(config, "r") as f:
         params = json.load(f)
     # Iterate over all subjects and sessions
     iterate = partial(

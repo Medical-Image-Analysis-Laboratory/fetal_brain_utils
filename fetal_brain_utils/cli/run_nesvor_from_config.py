@@ -113,12 +113,10 @@ def crop_input(sub, ses, output_path, img_list, mask_list, fake_run):
             imc = crop_path(im, m)
             maskc = crop_path(m, m)
             # Masking
-
             if imc is None:
                 print(f"Skipping image {im_file} (empty crop)")
                 continue
             imc = ni.Nifti1Image(imc.get_fdata() * maskc.get_fdata(), imc.affine)
-            print(im_file, imc.shape)
             ni.save(imc, cropped_im_path)
             ni.save(maskc, cropped_mask_path)
         if imc is not None:
@@ -208,7 +206,7 @@ def iterate_subject(
         img_str = " ".join([str(im) for im in img_list])
         mask_str = " ".join([str(m) for m in mask_list])
         model = output_sub_ses / f"{sub_ses_path}_{run_path}_model.pt"
-        sigmas = output_sub_ses / "slices"
+        sigmas = output_sub_ses / f"slices_run-{run_id}"
         for i, res in enumerate(target_res):
             res_str = str(res).replace(".", "p")
             output_str = (

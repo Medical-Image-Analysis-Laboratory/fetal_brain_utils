@@ -63,6 +63,7 @@ def iterate_subject(
     alpha,
     participant_label,
     use_preprocessed,
+    resolution,
     fake_run,
 ):
     if participant_label:
@@ -142,7 +143,9 @@ def iterate_subject(
                 os.makedirs(mask_cropped_path, exist_ok=True)
 
             # Get in-plane resolution to be set as target resolution.
-            resolution = ni.load(img_list[0]).header["pixdim"][1]
+            resolution = (
+                ni.load(img_list[0]).header["pixdim"][1] if resolution is None else resolution
+            )
 
             # Construct the path to each data point and mask in
             # the filesystem of the docker image
@@ -277,6 +280,13 @@ def main(argv=None):
     )
 
     p.add_argument(
+        "--resolution",
+        default=None,
+        help="Target resolution (default = in-plane resolution)",
+        type=float,
+    )
+
+    p.add_argument(
         "--use_preprocessed",
         action="store_true",
         default=False,
@@ -285,21 +295,22 @@ def main(argv=None):
 
     args = p.parse_args(argv)
     data_path = Path(args.data_path).resolve()
-    config = Path(args.config)
+    config = Path(args.config).resolve()
     masks_folder = Path(args.masks_path).resolve()
     out_path = Path(args.out_path).resolve()
     alpha = args.alpha
     participant_label = args.participant_label
     use_preprocessed = args.use_preprocessed
+    resolution = args.resolution
     nprocs = args.nprocs
     fake_run = args.fake_run
 
     # Load a dictionary of subject-session-paths
     # sub_ses_dict = iter_dir(data_path, add_run_only=True)
 
-    bids_layout = BIDSLayout(data_path, validate=True)
+    bids_layout = BIDSLayout(data_path, validate=False)
 
-    with open(data_path / "code" / config, "r") as f:
+    with open(config, "r") as f:
         params = json.load(f)
     # Iterate over all subjects and sessions
     iterate = partial(
@@ -312,6 +323,7 @@ def main(argv=None):
         alpha=alpha,
         participant_label=participant_label,
         use_preprocessed=use_preprocessed,
+        resolution=resolution,
         fake_run=fake_run,
     )
     if nprocs > 1:

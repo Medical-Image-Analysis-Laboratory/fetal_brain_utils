@@ -1,0 +1,5 @@
+Processing <PATH>/data/sub-simu005/ses-01/anat/sub-simu005_ses-01_run-2_T2w.nii.gz <PATH>/data/derivatives/masks/sub-simu005/ses-01/anat/sub-simu005_ses-01_run-2_mask.nii.gz
+Processing <PATH>/data/sub-simu005/ses-01/anat/sub-simu005_ses-01_run-6_T2w.nii.gz <PATH>/data/derivatives/masks/sub-simu005/ses-01/anat/sub-simu005_ses-01_run-6_mask.nii.gz
+RECONSTRUCTION STAGE
+docker run -v <PATH>/data/out/run_files/preprocess/sub-simu005/ses-01/anat/run-1:/home/data -v <PATH>/data/out/svrtk/sub-simu005/ses-01/anat:/home/out/ fetalsvrtk/svrtk mirtk reconstruct /home/out/sub-simu005_ses-01_run-1_rec-SR_T2w.nii.gz 2 /home/data/sub-simu005_ses-01_run-2_T2w.nii.gz /home/data/sub-simu005_ses-01_run-6_T2w.nii.gz -thickness 3.2 3.2 -resolution 1.10
+

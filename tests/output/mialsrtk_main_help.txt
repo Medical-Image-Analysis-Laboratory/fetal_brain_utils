@@ -1,0 +1,31 @@
+usage: __main__.py [-h] --data_path DATA_PATH --masks_path MASKS_PATH --config CONFIG --out_path OUT_PATH [--participant_label PARTICIPANT_LABEL [PARTICIPANT_LABEL ...]] [--fake_run]
+                    [--docker_version DOCKER_VERSION] [--run_type {sr,preprocessing}] [--automated] [--txt_to TXT_TO] [--labels_derivatives_dir LABELS_DERIVATIVES_DIR]
+                    [--pymialsrtk_path PYMIALSRTK_PATH] [--verbose] [--no_python_mount] [--complement_missing_masks]
+
+Parser for wrapper script of MIALSRTK This requires to provide data in a BIDS format.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --data_path DATA_PATH
+                        Path to the data. (default: None)
+  --masks_path MASKS_PATH
+                        Path to the brain masks. (default: None)
+  --config CONFIG       Path to the configuration file. (default: None)
+  --out_path OUT_PATH   Where the results are stored. (default: None)
+  --participant_label PARTICIPANT_LABEL [PARTICIPANT_LABEL ...]
+                        The label(s) of the participant(s) that should be analyzed. (default: None)
+  --fake_run            Whether to only print the commands instead of running them (default: False)
+  --docker_version DOCKER_VERSION
+                        Docker version of the pipeline used. (default: v2.1.0-dev)
+  --run_type {sr,preprocessing}
+                        Type of pipeline that is run. Can choose between running the super-resolution pipeline (`sr`) or only preprocesing (`preprocessing`). (default: sr)
+  --automated           Run with automated masks (default: False)
+  --txt_to TXT_TO       Where the text output is stored. By default, it is output to the command line. (default: None)
+  --labels_derivatives_dir LABELS_DERIVATIVES_DIR
+                        Where the labels are stored (absolute path). (default: None)
+  --pymialsrtk_path PYMIALSRTK_PATH
+                        Where pymialsrtk is located. (default: /home/tsanchez/Documents/mial/repositories/mialsuperresolutiontoolkit/pymialsrtk)
+  --verbose             Verbose output (default: False)
+  --no_python_mount     Whether the python folder should not be mounted. (default: True)
+  --complement_missing_masks
+                        Whether missing masks should be replaced with automated masks. (default: False)

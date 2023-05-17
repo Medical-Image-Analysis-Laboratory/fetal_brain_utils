@@ -1,0 +1,18 @@
+usage: __main__.py [-h] --data_path DATA_PATH --masks_path MASKS_PATH --config CONFIG --out_path OUT_PATH [--participant_label PARTICIPANT_LABEL [PARTICIPANT_LABEL ...]] [--fake_run] --target_res
+                         TARGET_RES [TARGET_RES ...]
+
+Parser for wrapper script of NeSVoR (docker) This requires to provide data in a BIDS format.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --data_path DATA_PATH
+                        Path to the data. (default: None)
+  --masks_path MASKS_PATH
+                        Path to the brain masks. (default: None)
+  --config CONFIG       Path to the configuration file. (default: None)
+  --out_path OUT_PATH   Where the results are stored. (default: None)
+  --participant_label PARTICIPANT_LABEL [PARTICIPANT_LABEL ...]
+                        The label(s) of the participant(s) that should be analyzed. (default: None)
+  --fake_run            Whether to only print the commands instead of running them (default: False)
+  --target_res TARGET_RES [TARGET_RES ...]
+                        Target resolutions at which the reconstruction should be done. (default: None)

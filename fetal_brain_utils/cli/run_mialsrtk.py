@@ -107,11 +107,12 @@ def merge_and_overwrite_folder(src, dest):
         os.rmdir(path)
 
 
-def main():
+def main(argv=None):
 
     import os
     import time
     from pathlib import Path
+    from .parser import get_default_parser
     import argparse
     import sys
 
@@ -121,16 +122,7 @@ def main():
     DOCKER_VERSION = "v2.1.0-dev"
 
     PATH_TO_ATLAS = "/media/tsanchez/tsanchez_data/data/atlas"
-    DATA_PATH = Path("/media/tsanchez/tsanchez_data/data/data")
-
-    p = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    p.add_argument(
-        "--data_path",
-        default=DATA_PATH,
-        help="Path where the data are located",
-    )
+    p = get_default_parser("MIALSRTK")
     p.add_argument(
         "--docker_version",
         default=DOCKER_VERSION,
@@ -151,25 +143,9 @@ def main():
         help="Run with automated masks",
     )
     p.add_argument(
-        "--participant_label",
-        help="The label(s) of the participant(s) that should be analyzed.",
-        nargs="+",
-    )
-    p.add_argument(
         "--txt_to",
         default=None,
         help="Where the text output is stored. By default, it is output to " "the command line.",
-    )
-    p.add_argument(
-        "--param_file",
-        default=None,
-        help="Where the json parameters are stored, relatively from code/ ",
-    )
-    p.add_argument("--out_folder", default=None, help="Where the results are stored.")
-    p.add_argument(
-        "--masks_derivatives_dir",
-        default=None,
-        help="Where the masks are stored (absolute path).",
     )
     p.add_argument(
         "--labels_derivatives_dir",
@@ -190,7 +166,7 @@ def main():
     p.add_argument(
         "--no_python_mount",
         action="store_true",
-        default=False,
+        default=True,
         help="Whether the python folder should not be mounted.",
     )
 
@@ -200,7 +176,8 @@ def main():
         default=False,
         help="Whether missing masks should be replaced with automated masks.",
     )
-    args = p.parse_args()
+
+    args = p.parse_args(argv)
 
     data_path = Path(args.data_path).absolute()
     docker_version = args.docker_version
@@ -208,9 +185,9 @@ def main():
     participant_label = args.participant_label
     automated = args.automated
     txt_to = args.txt_to
-    param_file = args.param_file
-    out_folder = args.out_folder
-    masks_derivatives_dir = args.masks_derivatives_dir
+    param_file = args.config
+    out_folder = args.out_path
+    masks_derivatives_dir = args.masks_path
     labels_derivatives_dir = args.labels_derivatives_dir
     complement_missing_masks = args.complement_missing_masks
     if masks_derivatives_dir:
@@ -237,7 +214,8 @@ def main():
         out_folder = f"derivatives/{run_type}_{mask_str}"
         out_folder = data_path / out_folder
     out_folder = Path(out_folder).absolute()
-    os.makedirs(out_folder, exist_ok=True)
+    if not args.fake_run:
+        os.makedirs(out_folder, exist_ok=True)
     auto_dict = None
     if complement_missing_masks:
         assert masks_derivatives_dir is not None, (
@@ -250,7 +228,6 @@ def main():
             out_folder / "masks",
         )
         masks_derivatives_dir = out_folder / "masks"
-        print(auto_dict)
 
     if param_file:
         param_file = Path(param_file).absolute()
@@ -275,7 +252,6 @@ def main():
     if labels_derivatives_dir is not None:
         base_command += f" -v {labels_derivatives_dir}:/labels"
     if param_file:
-        print(param_file.parent.absolute())
         base_command += f" -v {param_file.parent}:/code"
     base_command += (
         f" -v {PATH_TO_ATLAS}:/sta"
@@ -302,20 +278,22 @@ def main():
         base_command += f" > {txt_to}"
     time_base = time.time()
     print(base_command)
-    os.system(base_command)
-    print(f"Total elapsed time: {time.time()-time_base}")
+    if not args.fake_run:
+        os.system(base_command)
+        print(f"Total elapsed time: {time.time()-time_base}")
     out_final = out_folder / f"{out_folder.name}"
 
-    # Renaming the pymialsrtk output to a folder with the same name as the output folder.
-    merge_and_overwrite_folder(out_folder / f"pymialsrtk-{DOCKER_VERSION[1:]}", out_final)
+    if not args.fake_run:
+        # Renaming the pymialsrtk output to a folder with the same name as the output folder.
+        merge_and_overwrite_folder(out_folder / f"pymialsrtk-{DOCKER_VERSION[1:]}", out_final)
 
-    edit_output_json(
-        out_final,
-        param_file.absolute(),
-        base_command,
-        auto_dict,
-        participant_label,
-    )
+        edit_output_json(
+            out_final,
+            param_file.absolute(),
+            base_command,
+            auto_dict,
+            participant_label,
+        )
 
 
 if __name__ == "__main__":

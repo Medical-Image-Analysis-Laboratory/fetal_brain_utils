@@ -64,10 +64,9 @@ def iterate_subject(
     alpha,
     participant_label,
     use_preprocessed,
+    resolution,
     fake_run,
 ):
-
-    pid = os.getpid()
     if participant_label:
         if sub not in participant_label:
             return
@@ -205,21 +204,21 @@ def iterate_subject(
                 f" --suffix-mask _mask"
                 f" --alpha {alpha}"
             )
-            print(f"RECONSTRUCTION STAGE (PID={pid})")
+            print("RECONSTRUCTION STAGE")
             print(cmd)
             print()
             if not fake_run:
                 os.system(cmd)
-            ## Copy files in BIDS format
+                ## Copy files in BIDS format
 
-            # Creating the dataset_description file.
-            os.makedirs(output_path / "niftymic", exist_ok=True)
-            dataset_description = {
-                "Name": "CHUV fetal brain MRI",
-                "BIDSVersion": "1.8.0",
-            }
-            with open(output_path / "niftymic" / "dataset_description.json", "w") as f:
-                json.dump(dataset_description, f)
+                # Creating the dataset_description file.
+                os.makedirs(output_path / "niftymic", exist_ok=True)
+                dataset_description = {
+                    "Name": "CHUV fetal brain MRI",
+                    "BIDSVersion": "1.8.0",
+                }
+                with open(output_path / "niftymic" / "dataset_description.json", "w") as f:
+                    json.dump(dataset_description, f)
 
             out_path = output_path / "niftymic" / sub_path / ses_path / "anat"
             os.makedirs(out_path, exist_ok=True)
@@ -275,28 +274,11 @@ def iterate_subject(
                 print(e)
 
 
-def main():
+def main(argv=None):
+    from .parser import get_default_parser
 
-    p = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    p.add_argument(
-        "--data_path",
-        default=DATA_PATH,
-        help="Path where the data are located",
-    )
+    p = get_default_parser("NiftyMIC")
 
-    p.add_argument(
-        "--masks_folder",
-        required=True,
-        help="Folder where the masks are located.",
-    )
-
-    p.add_argument(
-        "--out_path",
-        required=True,
-        help="Folder where the output will be stored.",
-    )
     p.add_argument(
         "--alpha",
         help="Alpha to be used.",
@@ -305,23 +287,17 @@ def main():
     )
 
     p.add_argument(
-        "--config",
-        help="Config path.",
-        required=True,
-        type=str,
-    )
-
-    p.add_argument(
-        "--participant_label",
-        default=None,
-        help="Label of the participant",
-        nargs="+",
-    )
-    p.add_argument(
         "--nprocs",
         default=1,
         help="Number of processes used in parallel",
         type=int,
+    )
+
+    p.add_argument(
+        "--resolution",
+        default=None,
+        help="Target resolution (default = in-plane resolution)",
+        type=float,
     )
 
     p.add_argument(
@@ -331,20 +307,15 @@ def main():
         help="Whether the parameter study should use " "bias corrected images as input.",
     )
 
-    p.add_argument(
-        "--fake_run",
-        action="store_true",
-        default=False,
-        help="Whether to only print the commands instead of running them",
-    )
-    args = p.parse_args()
+    args = p.parse_args(argv)
     data_path = Path(args.data_path).resolve()
-    config = Path(args.config)
-    masks_folder = Path(args.masks_folder).resolve()
+    config = Path(args.config).resolve()
+    masks_folder = Path(args.masks_path).resolve()
     out_path = Path(args.out_path).resolve()
     alpha = args.alpha
     participant_label = args.participant_label
     use_preprocessed = args.use_preprocessed
+    resolution = args.resolution
     nprocs = args.nprocs
     fake_run = args.fake_run
 
@@ -353,7 +324,7 @@ def main():
 
     bids_layout = BIDSLayout(data_path, validate=False)
 
-    with open(data_path / "code" / config, "r") as f:
+    with open(config, "r") as f:
         params = json.load(f)
     # Iterate over all subjects and sessions
     iterate = partial(
@@ -366,6 +337,7 @@ def main():
         alpha=alpha,
         participant_label=participant_label,
         use_preprocessed=use_preprocessed,
+        resolution=resolution,
         fake_run=fake_run,
     )
     if nprocs > 1:

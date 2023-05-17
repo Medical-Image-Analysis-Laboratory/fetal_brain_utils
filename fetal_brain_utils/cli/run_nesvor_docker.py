@@ -78,13 +78,14 @@ def filter_run_list(stacks, run_list):
     return [run_dict[s] for s in stacks]
 
 
-def crop_input(sub, ses, output_path, img_list, mask_list):
+def crop_input(sub, ses, output_path, img_list, mask_list, fake_run=False):
     import nibabel as ni
     from fetal_brain_utils import get_cropped_stack_based_on_mask
     from functools import partial
 
     sub_ses_output = output_path / f"sub-{sub}/ses-{ses}/anat"
-    os.makedirs(sub_ses_output, exist_ok=True)
+    if not fake_run:
+        os.makedirs(sub_ses_output, exist_ok=True)
 
     boundary_mm = 15
     crop_path = partial(
@@ -99,15 +100,17 @@ def crop_input(sub, ses, output_path, img_list, mask_list):
         im_file, mask_file = Path(image).name, Path(mask).name
         cropped_im_path = sub_ses_output / im_file
         cropped_mask_path = sub_ses_output / mask_file
-        im, m = ni.load(image), ni.load(mask)
+        if not fake_run:
+            im, m = ni.load(image), ni.load(mask)
 
-        imc = crop_path(im, m)
-        maskc = crop_path(m, m)
-        # Masking
-        imc = ni.Nifti1Image(imc.get_fdata() * maskc.get_fdata(), imc.affine)
+            imc = crop_path(im, m)
+            maskc = crop_path(m, m)
+            # Masking
 
-        ni.save(imc, cropped_im_path)
-        ni.save(maskc, cropped_mask_path)
+            imc = ni.Nifti1Image(imc.get_fdata() * maskc.get_fdata(), imc.affine)
+
+            ni.save(imc, cropped_im_path)
+            ni.save(maskc, cropped_mask_path)
         im_list_c.append(str(cropped_im_path))
         mask_list_c.append(str(cropped_mask_path))
     return im_list_c, mask_list_c
@@ -123,6 +126,7 @@ def iterate_subject(
     participant_label,
     target_res,
     config,
+    fake_run,
 ):
 
     if participant_label:
@@ -137,7 +141,8 @@ def iterate_subject(
     output_path_crop = output_path / "cropped_input"
     output_path = output_path / "nesvor"
     sub_ses_masks_dict = iter_dir(mask_base_path)
-    os.makedirs(output_path, exist_ok=True)
+    if not fake_run:
+        os.makedirs(output_path, exist_ok=True)
 
     sub_path = f"sub-{sub}"
     if not isinstance(config_sub, list):
@@ -159,7 +164,6 @@ def iterate_subject(
         mask_list, auto_masks = filter_and_complement_mask_list(stacks, sub, ses, mask_list)
         mask_list = [str(f) for f in mask_list]
         img_list = [str(f) for f in filter_run_list(stacks, img_list)]
-        print(mask_list, img_list)
         conf["use_auto_mask"] = auto_masks
         conf["im_path"] = img_list
         conf["mask_path"] = mask_list
@@ -168,9 +172,10 @@ def iterate_subject(
         # Construct the data and mask path from their respective
         # base paths
         output_sub_ses = output_path / sub_path / ses_path / "anat"
-        os.makedirs(output_sub_ses, exist_ok=True)
+        if not fake_run:
+            os.makedirs(output_sub_ses, exist_ok=True)
 
-        img_list, mask_list = crop_input(sub, ses, output_path_crop, img_list, mask_list)
+        img_list, mask_list = crop_input(sub, ses, output_path_crop, img_list, mask_list, fake_run)
         mount_base = Path(img_list[0]).parent
         img_str = " ".join([str(Path("/data") / Path(im).name) for im in img_list])
         mask_str = " ".join([str(Path("/data") / Path(m).name) for m in mask_list])
@@ -185,7 +190,7 @@ def iterate_subject(
             output_json = str(output_sub_ses / out_base) + ".json"
             if i == 0:
                 cmd = (
-                    f" docker run --gpus '\"device=0\"' "
+                    f"docker run --gpus '\"device=0\"' "
                     f"-v {mount_base}:/data "
                     f"-v {output_sub_ses}:/out "
                     f"junshenxu/nesvor:v0.1.0 nesvor reconstruct "
@@ -199,7 +204,7 @@ def iterate_subject(
                 )
             else:
                 cmd = (
-                    f" docker run --gpus '\"device=0\"' "
+                    f"docker run --gpus '\"device=0\"' "
                     f"-v {output_sub_ses}:/out "
                     f"junshenxu/nesvor:v0.1.0 nesvor sample-volume "
                     f"--input-model {model} "
@@ -214,62 +219,30 @@ def iterate_subject(
                 "model": str(model),
                 "command": cmd,
             }
-            conf = {k: conf[k] for k in OUT_JSON_ORDER if k in conf.keys()}
-            with open(output_json, "w") as f:
-                json.dump(conf, f, indent=4)
             print(cmd)
-            os.system(cmd)
+            if not fake_run:
+                conf = {k: conf[k] for k in OUT_JSON_ORDER if k in conf.keys()}
+                with open(output_json, "w") as f:
+                    json.dump(conf, f, indent=4)
 
-            # Transform the affine of the sr reconstruction
-            out_file = str(output_sub_ses / out_base) + "_misaligned.nii.gz"
-            out_file_reo = str(output_sub_ses / out_base) + ".nii.gz"
-            sr = ni.load(out_file)
-            affine = sr.affine[[2, 1, 0, 3]]
-            affine[1, :] *= -1
-            ni.save(
-                ni.Nifti1Image(sr.get_fdata()[:, :, :], affine, sr.header),
-                out_file_reo,
-            )
+                os.system(cmd)
+
+                # Transform the affine of the sr reconstruction
+                out_file = str(output_sub_ses / out_base) + "_misaligned.nii.gz"
+                out_file_reo = str(output_sub_ses / out_base) + ".nii.gz"
+                sr = ni.load(out_file)
+                affine = sr.affine[[2, 1, 0, 3]]
+                affine[1, :] *= -1
+                ni.save(
+                    ni.Nifti1Image(sr.get_fdata()[:, :, :], affine, sr.header),
+                    out_file_reo,
+                )
 
 
-def main():
+def main(argv=None):
+    from .parser import get_default_parser
 
-    p = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    p.add_argument(
-        "--data_path",
-        default=DATA_PATH,
-        help="Path where the data are located",
-    )
-
-    p.add_argument(
-        "--masks_folder",
-        required=True,
-        default=None,
-        help="Folder where the masks are located.",
-    )
-
-    p.add_argument(
-        "--out_path",
-        required=True,
-        default=None,
-        help="Folder where the output will be stored.",
-    )
-
-    p.add_argument(
-        "--config",
-        help="Config path in data_path/code (default: `params.json`)",
-        default="params.json",
-        type=str,
-    )
-
-    p.add_argument(
-        "--participant_label",
-        default=None,
-        help="Label of the participant",
-        nargs="+",
-    )
+    p = get_default_parser("NeSVoR (docker)")
 
     p.add_argument(
         "--target_res",
@@ -278,11 +251,12 @@ def main():
         type=float,
         help="Target resolutions at which the reconstruction should be done.",
     )
-    args = p.parse_args()
+
+    args = p.parse_args(argv)
 
     data_path = Path(args.data_path).resolve()
     out_path = Path(args.out_path).resolve()
-    masks_folder = Path(args.masks_folder).resolve()
+    masks_folder = Path(args.masks_path).resolve()
     config = args.config
 
     # Load a dictionary of subject-session-paths
@@ -300,6 +274,7 @@ def main():
         participant_label=args.participant_label,
         target_res=args.target_res,
         config=config,
+        fake_run=args.fake_run,
     )
     for sub, config_sub in params.items():
         iterate(sub, config_sub)

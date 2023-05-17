@@ -11,11 +11,35 @@ import nibabel as ni
 import os
 from bids.layout.writing import build_path
 from .definitions import AUTO_MASK_PATH, PATTERN
+from bids import BIDSLayout
+
+
+def squeeze_dim(arr, dim):
+    if arr.shape[dim] == 1 and len(arr.shape) > 3:
+        return np.squeeze(arr, axis=dim)
+    return arr
+
+
+def fill_pattern(bids_layout, sub, ses, run, pattern, suffix="T2w_mask"):
+
+    query = bids_layout.get(subject=sub, session=ses, run=run)[0]
+    acquisition = query.entities["acquisition"] if "acquisition" in query.entities else None
+    ents = {
+        "subject": sub,
+        "session": ses,
+        "run": run,
+        "datatype": "anat",
+        "acquisition": acquisition,
+        "suffix": suffix,
+    }
+    return bids_layout.build_path(ents, pattern, validate=False)
 
 
 def get_mask_path(bids_dir, subject, ses, run):
     """Create the target file path from a given
     subject, run and extension.
+    This works without BIDSLayout as the folder bids_dir
+    might not exist.
     """
     ents = {
         "subject": subject,
@@ -90,10 +114,18 @@ def csv_to_list(csv_path):
     """Read through a CSV file and maps each row
     to the entry of a list.
     """
-    file_list = []
-    reader = csv.DictReader(open(csv_path))
-    for i, line in enumerate(reader):
-        file_list.append(line)
+    if csv_path.endswith(".csv"):
+        file_list = []
+        reader = csv.DictReader(open(csv_path))
+        for i, line in enumerate(reader):
+            file_list.append(line)
+    elif csv_path.endswith(".tsv"):
+        file_list = []
+        reader = csv.DictReader(open(csv_path), delimiter="\t")
+        for i, line in enumerate(reader):
+            file_list.append(line)
+    else:
+        raise ValueError("File must be a CSV or TSV file.")
     return file_list
 
 
@@ -139,7 +171,6 @@ def iter_dir(
         Whether only the files with run- should be added.
         Filtering out some additional files in the anat folder.
     """
-    print("Checking ", dir)
     dir = Path(dir)
     subject_dict = dict()
     for subject in sorted(dir.iterdir()):

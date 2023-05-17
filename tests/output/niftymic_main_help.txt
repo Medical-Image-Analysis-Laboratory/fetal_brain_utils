@@ -1,0 +1,19 @@
+usage: __main__.py [-h] --data_path DATA_PATH --masks_path MASKS_PATH --config CONFIG --out_path OUT_PATH [--participant_label PARTICIPANT_LABEL [PARTICIPANT_LABEL ...]] [--fake_run] [--alpha ALPHA]
+                    [--nprocs NPROCS] [--use_preprocessed]
+
+Parser for wrapper script of NiftyMIC This requires to provide data in a BIDS format.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --data_path DATA_PATH
+                        Path to the data. (default: None)
+  --masks_path MASKS_PATH
+                        Path to the brain masks. (default: None)
+  --config CONFIG       Path to the configuration file. (default: None)
+  --out_path OUT_PATH   Where the results are stored. (default: None)
+  --participant_label PARTICIPANT_LABEL [PARTICIPANT_LABEL ...]
+                        The label(s) of the participant(s) that should be analyzed. (default: None)
+  --fake_run            Whether to only print the commands instead of running them (default: False)
+  --alpha ALPHA         Alpha to be used. (default: 0.068)
+  --nprocs NPROCS       Number of processes used in parallel (default: 1)
+  --use_preprocessed    Whether the parameter study should use bias corrected images as input. (default: False)

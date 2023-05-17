@@ -145,7 +145,7 @@ def iterate_subject(
                 os.makedirs(mask_cropped_path, exist_ok=True)
 
             # Get in-plane resolution to be set as target resolution.
-            resolution = ni.load(img_list[0]).header["pixdim"][1]
+            resolution = 0.8 #ni.load(img_list[0]).header["pixdim"][1]
 
             # Construct the path to each data point and mask in
             # the filesystem of the docker image
@@ -166,17 +166,18 @@ def iterate_subject(
                 imc = crop_path(im, m)
                 maskc = crop_path(m, m)
                 # Masking
-                imc = ni.Nifti1Image(imc.get_fdata() * maskc.get_fdata(), imc.affine)
+                if imc is not None:
+                    imc = ni.Nifti1Image(imc.get_fdata() * maskc.get_fdata(), imc.affine)
 
-                ni.save(imc, cropped_im)
-                ni.save(maskc, cropped_mask)
+                    ni.save(imc, cropped_im)
+                    ni.save(maskc, cropped_mask)
 
-                # Define the file and path names inside the docker volume
-                run_im = Path("/data") / im_file
-                run_mask = Path("/seg") / mask_file
-                filename_data.append(str(run_im))
-                filename_masks.append(str(run_mask))
-                filename_prepro.append("/srr/preprocessing_n4itk/" + os.path.basename(run_im))
+                    # Define the file and path names inside the docker volume
+                    run_im = Path("/data") / im_file
+                    run_mask = Path("/seg") / mask_file
+                    filename_data.append(str(run_im))
+                    filename_masks.append(str(run_mask))
+                    filename_prepro.append("/srr/preprocessing_n4itk/" + os.path.basename(run_im))
             filename_data = " ".join(filename_data)
             filename_masks = " ".join(filename_masks)
             filename_prepro = " ".join(filename_prepro)
@@ -191,7 +192,7 @@ def iterate_subject(
             # Replace input and mask path by preprocessed
             input_path, mask_path = input_cropped_path, mask_cropped_path
             cmd = (
-                f"docker run -v {input_path}:/data " #               
+                f"docker run --rm -v {input_path}:/data " #               
                 f"-v {mask_path}:/seg "
                 f"-v {recon_path}:/srr "
                 f"-v /media/paul/data/paul/fetal_uncertainty_reconstruction/reconstruction_methods/NiftyMIC/niftymic:/app/NiftyMIC/niftymic "
@@ -222,11 +223,13 @@ def iterate_subject(
 
             out_path = output_path / "niftymic" / sub_path / ses_path / "anat"
             os.makedirs(out_path, exist_ok=True)
-            final_base = str(out_path / f"{sub_path}_{ses_path}_{run_path}_SR_T2w")
-            final_reject = final_base + "_rejected_slices.csv"
-            final_rec = final_base + ".nii.gz"
-            final_rec_json = final_base + ".json"
-            final_mask = final_base + "_mask.nii.gz"
+            final_base = str(out_path / f"{sub_path}_{ses_path}_{run_path}")
+            final_reject = final_base + "_desc-rejectedSlices.csv"
+            final_rec = final_base + "_desc-SR_T2w.nii.gz"
+            final_rec_json = final_base + "_desc-SR_T2w.json"
+            final_mask = final_base + "_desc-SR_mask.nii.gz"
+            final_uncertainty = final_base + "_desc-SR_uncertainty.nii.gz"
+            final_uncertainty_normalized = final_base + "_desc-SR_uncertaintyNormalized.nii.gz"
 
             shutil.copyfile(
                 recon_path / "recon_template_space/srr_template.nii.gz",
@@ -239,27 +242,19 @@ def iterate_subject(
             )
             
             shutil.copyfile(
-                recon_path / "recon_template_space/srr_rejected_slices.csv",
+                recon_path / "recon_subject_space/srr_rejectedSlices.csv",
                 final_reject,
             )
 
+            shutil.copyfile(
+                recon_path / "recon_template_space/srr_template_mask_uncertainty.nii.gz",
+                final_uncertainty,
+            )
 
-            ###################### UNRESTRICT ACCESS TO REJECTED SLICES FILE ########################
-#
- #           output_file_path = Path("../../out/niftymic/test_output_dir/rejected_slices.csv")
-  #          accessible_file_path = Path("../../out/niftymic/test_output_dir/rejected_slices_accessible.csv")
-#
- #           out_parameters_name = ["slice_ID", "stack", "stack_filename", "cycle", "measure", "threshold", "NCC_value", "just_rejected", "rejected"]
-  #          with open(accessible_file_path, 'w') as access_file:
-   #             writer = csv.writer(access_file)
-    #            writer.writerow(out_parameters_name)
-     #           with open(output_file_path, 'r') as out_file:
-      #              reader = csv.reader(out_file)
-       #             for row in reader:
-        #                writer.writerow(row)
-         #   os.remove(output_file_path)
-
-            ########################################################################################
+            shutil.copyfile(
+                recon_path / "recon_template_space/srr_template_mask_uncertainty_normalized.nii.gz",
+                final_uncertainty_normalized,
+            )
 
 
             conf["info"] = {
@@ -356,7 +351,7 @@ def main():
     # Load a dictionary of subject-session-paths
     # sub_ses_dict = iter_dir(data_path, add_run_only=True)
 
-    bids_layout = BIDSLayout(data_path, validate=True)
+    bids_layout = BIDSLayout(data_path, validate=False)
 
     with open(data_path / "code" / config, "r") as f:
         params = json.load(f)

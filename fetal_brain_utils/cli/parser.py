@@ -16,7 +16,6 @@ def get_default_parser(srr):
     p.add_argument(
         "--masks_path",
         default=None,
-        required=True,
         help="Path to the brain masks.",
     )
 

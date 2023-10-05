@@ -17,6 +17,7 @@ DATA_PATH = Path("/media/tsanchez/tsanchez_data/data/data")
 AUTO_MASK_PATH = "/media/tsanchez/tsanchez_data/data/out_anon/masks"
 
 BATCH_SIZE = 8192
+NESVOR_VERSION = "v0.5.0"
 
 
 def get_mask_path(bids_dir, subject, ses, run):
@@ -58,27 +59,12 @@ def find_run_id(file_list):
     return run_dict
 
 
-def filter_and_complement_mask_list(stacks, sub, ses, mask_list):
-    """Filter and sort a run list according to the stacks ordering"""
-    run_dict = find_run_id(mask_list)
-    auto_masks = []
-    for s in stacks:
-        if s not in run_dict.keys():
-            print(f"Mask for stack {s} not found.")
-            mask = get_mask_path(AUTO_MASK_PATH, sub, ses, s)
-            assert os.path.isfile(mask), f"Automated mask not found at {mask}"
-            print(f"Using automated mask {mask}.")
-            run_dict[s] = mask
-            auto_masks.append(s)
-    return [run_dict[s] for s in stacks], auto_masks
-
-
 def filter_run_list(stacks, run_list):
     run_dict = find_run_id(run_list)
     return [run_dict[s] for s in stacks]
 
 
-def crop_input(sub, ses, output_path, img_list, mask_list, fake_run=False):
+def crop_input(sub, ses, output_path, img_list, mask_list, mask_input, fake_run=False):
     import nibabel as ni
     from fetal_brain_utils import get_cropped_stack_based_on_mask
     from functools import partial
@@ -106,8 +92,10 @@ def crop_input(sub, ses, output_path, img_list, mask_list, fake_run=False):
             imc = crop_path(im, m)
             maskc = crop_path(m, m)
             # Masking
-
-            imc = ni.Nifti1Image(imc.get_fdata() * maskc.get_fdata(), imc.affine)
+            if mask_input:
+                imc = ni.Nifti1Image(imc.get_fdata() * maskc.get_fdata(), imc.affine)
+            else:
+                imc = ni.Nifti1Image(imc.get_fdata(), imc.affine)
 
             ni.save(imc, cropped_im_path)
             ni.save(maskc, cropped_mask_path)
@@ -126,9 +114,10 @@ def iterate_subject(
     participant_label,
     target_res,
     config,
+    nesvor_version,
+    mask_input,
     fake_run,
 ):
-
     if participant_label:
         if sub not in participant_label:
             return
@@ -161,10 +150,9 @@ def iterate_subject(
         run_id = conf["sr-id"] if "sr-id" in conf else "1"
         run_path = f"run-{run_id}"
 
-        mask_list, auto_masks = filter_and_complement_mask_list(stacks, sub, ses, mask_list)
         mask_list = [str(f) for f in mask_list]
         img_list = [str(f) for f in filter_run_list(stacks, img_list)]
-        conf["use_auto_mask"] = auto_masks
+        mask_list = [str(f) for f in filter_run_list(stacks, mask_list)]
         conf["im_path"] = img_list
         conf["mask_path"] = mask_list
         conf["config_path"] = str(config)
@@ -175,7 +163,15 @@ def iterate_subject(
         if not fake_run:
             os.makedirs(output_sub_ses, exist_ok=True)
 
-        img_list, mask_list = crop_input(sub, ses, output_path_crop, img_list, mask_list, fake_run)
+        img_list, mask_list = crop_input(
+            sub,
+            ses,
+            output_path_crop,
+            img_list,
+            mask_list,
+            mask_input,
+            fake_run,
+        )
         mount_base = Path(img_list[0]).parent
         img_str = " ".join([str(Path("/data") / Path(im).name) for im in img_list])
         mask_str = " ".join([str(Path("/data") / Path(m).name) for m in mask_list])
@@ -186,22 +182,28 @@ def iterate_subject(
         for i, res in enumerate(target_res):
             res_str = str(res).replace(".", "p")
             out_base = f"{sub_path}_{ses_path}_" f"acq-haste_res-{res_str}_{run_path}_T2w"
-            output_file = str(out / out_base) + "_misaligned.nii.gz"
+            if nesvor_version == "v0.5.0":
+                output_file = str(out / out_base) + ".nii.gz"
+            else:
+                output_file = str(out / out_base) + "_misaligned.nii.gz"
             output_json = str(output_sub_ses / out_base) + ".json"
             if i == 0:
                 cmd = (
                     f"docker run --gpus '\"device=0\"' "
                     f"-v {mount_base}:/data "
                     f"-v {output_sub_ses}:/out "
-                    f"junshenxu/nesvor:v0.1.0 nesvor reconstruct "
+                    f"-v /media/tsanchez/tsanchez_data/data/NeSVoR/nesvor/:/usr/local/NeSVoR/nesvor/ -it "
+                    f"junshenxu/nesvor:{nesvor_version} nesvor reconstruct "
                     f"--input-stacks {img_str} "
                     f"--stack-masks {mask_str} "
-                    f"--n-levels-bias 1 "
                     f"--output-volume {output_file} "
                     f"--output-resolution {res} "
                     f"--output-model {model} "
-                    f"--batch-size {BATCH_SIZE}"
+                    f"--n-levels-bias 1 "
+                    f"--batch-size {BATCH_SIZE} "
                 )
+                if nesvor_version == "v0.5.0":
+                    cmd += "--bias-field-correction"
             else:
                 cmd = (
                     f"docker run --gpus '\"device=0\"' "
@@ -228,15 +230,16 @@ def iterate_subject(
                 os.system(cmd)
 
                 # Transform the affine of the sr reconstruction
-                out_file = str(output_sub_ses / out_base) + "_misaligned.nii.gz"
-                out_file_reo = str(output_sub_ses / out_base) + ".nii.gz"
-                sr = ni.load(out_file)
-                affine = sr.affine[[2, 1, 0, 3]]
-                affine[1, :] *= -1
-                ni.save(
-                    ni.Nifti1Image(sr.get_fdata()[:, :, :], affine, sr.header),
-                    out_file_reo,
-                )
+                if nesvor_version != "v0.5.0":
+                    out_file = str(output_sub_ses / out_base) + "_misaligned.nii.gz"
+                    out_file_reo = str(output_sub_ses / out_base) + ".nii.gz"
+                    sr = ni.load(out_file)
+                    affine = sr.affine[[2, 1, 0, 3]]
+                    affine[1, :] *= -1
+                    ni.save(
+                        ni.Nifti1Image(sr.get_fdata()[:, :, :], affine, sr.header),
+                        out_file_reo,
+                    )
 
 
 def main(argv=None):
@@ -252,17 +255,31 @@ def main(argv=None):
         help="Target resolutions at which the reconstruction should be done.",
     )
 
+    p.add_argument(
+        "--version",
+        default=NESVOR_VERSION,
+        type=str,
+        choices=["v0.1.0", "v0.5.0"],
+        help="Version of NeSVoR to use.",
+    )
+
+    p.add_argument(
+        "--mask_input",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Whether the input stacks should be masked prior to computation.",
+    )
     args = p.parse_args(argv)
 
     data_path = Path(args.data_path).resolve()
     out_path = Path(args.out_path).resolve()
     masks_folder = Path(args.masks_path).resolve()
-    config = args.config
+    config = Path(args.config).resolve()
 
     # Load a dictionary of subject-session-paths
     sub_ses_dict = iter_dir(data_path, add_run_only=True)
 
-    with open(data_path / "code" / config, "r") as f:
+    with open(config, "r") as f:
         params = json.load(f)
     # Iterate over all subjects and sessions
     iterate = partial(
@@ -274,6 +291,8 @@ def main(argv=None):
         participant_label=args.participant_label,
         target_res=args.target_res,
         config=config,
+        nesvor_version=args.version,
+        mask_input=args.mask_input,
         fake_run=args.fake_run,
     )
     for sub, config_sub in params.items():

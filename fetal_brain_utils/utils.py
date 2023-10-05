@@ -21,7 +21,6 @@ def squeeze_dim(arr, dim):
 
 
 def fill_pattern(bids_layout, sub, ses, run, pattern, suffix="T2w_mask"):
-
     query = bids_layout.get(subject=sub, session=ses, run=run)[0]
     acquisition = query.entities["acquisition"] if "acquisition" in query.entities else None
     ents = {
@@ -155,7 +154,7 @@ def print_title(text, center=True, char="-"):
 
 
 def iter_dir(
-    dir: str,
+    dir: Path,
     suffix: str = ".nii.gz",
     list_id: list = False,
     add_run_only: bool = False,

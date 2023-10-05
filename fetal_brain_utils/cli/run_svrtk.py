@@ -81,7 +81,6 @@ def iterate_subject(
                 extension="nii.gz",
                 return_type="filename",
             )
-
             stacks = conf["stacks"] if "stacks" in conf else find_run_id(img_list)
             run_id = conf["sr-id"] if "sr-id" in conf else "1"
 
@@ -245,7 +244,7 @@ def main(argv=None):
     args = p.parse_args(argv)
     data_path = Path(args.data_path).resolve()
     config = Path(args.config).resolve()
-    masks_folder = Path(args.masks_path).resolve()
+    masks_folder = args.masks_path
     out_path = Path(args.out_path).resolve()
     target_res = args.target_res
     participant_label = args.participant_label
@@ -253,6 +252,8 @@ def main(argv=None):
     fake_run = args.fake_run
     if use_svrtk_auto:
         assert masks_folder is None, "Cannot use masks with svrtk:auto-2.20"
+    else:
+        masks_folder = Path(masks_folder).resolve()
     # Load a dictionary of subject-session-paths
     # sub_ses_dict = iter_dir(data_path, add_run_only=True)
 

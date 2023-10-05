@@ -11,9 +11,11 @@ def edit_output_json(out_folder, config, cmd, auto_dict, participant_label=None)
         if participant_label:
             if sub not in participant_label:
                 continue
+        if not isinstance(sub_list, list):
+            sub_list = [sub_list]
         for sub_ses_dict in sub_list:
             if "session" in sub_ses_dict.keys():
-                ses, run_id = sub_ses_dict["session"], sub_ses_dict["sr-id"]
+                ses, run_id = sub_ses_dict["session"], sub_ses_dict.get("sr-id", 1000)
                 ses_path = f"ses-{ses}"
                 output_sub_ses = out_folder / sub_path / ses_path / "anat"
                 out_json = output_sub_ses / f"{sub_path}_{ses_path}_rec-SR_id-{run_id}_T2w.json"
@@ -108,7 +110,6 @@ def merge_and_overwrite_folder(src, dest):
 
 
 def main(argv=None):
-
     import os
     import time
     from pathlib import Path
@@ -119,7 +120,7 @@ def main(argv=None):
     PYMIALSRTK_PATH = (
         "/home/tsanchez/Documents/mial/" "repositories/mialsuperresolutiontoolkit/pymialsrtk"
     )
-    DOCKER_VERSION = "v2.1.0-dev"
+    DOCKER_VERSION = "v2.1.0"
 
     PATH_TO_ATLAS = "/media/tsanchez/tsanchez_data/data/atlas"
     p = get_default_parser("MIALSRTK")
@@ -166,7 +167,7 @@ def main(argv=None):
     p.add_argument(
         "--no_python_mount",
         action="store_true",
-        default=True,
+        default=False,
         help="Whether the python folder should not be mounted.",
     )
 
@@ -255,8 +256,8 @@ def main(argv=None):
         base_command += f" -v {param_file.parent}:/code"
     base_command += (
         f" -v {PATH_TO_ATLAS}:/sta"
-        f" sebastientourbier/mialsuperresolutiontoolkit-"
-        f"bidsapp:{docker_version}"
+        f" sebastientourbier/mialsuperresolutiontoolkit-bidsapp"  # -bidsapp
+        f":{docker_version}"
         f" /bids_dir /output_dir participant"
         f" --param_file {subject_json}"
         f" --openmp_nb_of_cores 3"

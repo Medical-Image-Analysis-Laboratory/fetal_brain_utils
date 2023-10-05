@@ -63,7 +63,9 @@ def iterate_subject(
     alpha,
     participant_label,
     use_preprocessed,
+    automated_template,
     resolution,
+    mask_input,
     fake_run,
 ):
     if participant_label:
@@ -169,7 +171,11 @@ def iterate_subject(
                     # Masking
 
                     if imc is not None:
-                        imc = ni.Nifti1Image(imc.get_fdata() * maskc.get_fdata(), imc.affine)
+                        if mask_input:
+                            im_f = imc.get_fdata() * maskc.get_fdata()
+                        else:
+                            im_f = imc.get_fdata()
+                        imc = ni.Nifti1Image(im_f, imc.affine)
 
                         ni.save(imc, cropped_im)
                         ni.save(maskc, cropped_mask)
@@ -205,8 +211,10 @@ def iterate_subject(
                 f" --dir-output /srr"
                 f" --isotropic-resolution {resolution}"
                 f" --suffix-mask _mask"
-                f" --alpha {alpha}"
+                f" --alpha {alpha} "
             )
+            if not automated_template:
+                cmd += " --automatic-target-stack 0"
             print("RECONSTRUCTION STAGE")
             print(cmd)
             print()
@@ -242,6 +250,12 @@ def iterate_subject(
                     final_mask,
                 )
 
+                # Mask the output image
+                im = ni.load(final_rec)
+                m = ni.load(final_mask)
+                im_f = im.get_fdata() * m.get_fdata()
+                im = ni.Nifti1Image(im_f, im.affine, im.header)
+                ni.save(im, final_rec)
                 conf["info"] = {
                     "reconstruction": "NiftyMIC",
                     "alpha": alpha,
@@ -290,7 +304,21 @@ def main(argv=None):
         "--use_preprocessed",
         action="store_true",
         default=False,
-        help="Whether the parameter study should use " "bias corrected images as input.",
+        help="Whether the parameter study should use bias corrected images as input.",
+    )
+
+    p.add_argument(
+        "--no_automated_stack",
+        action="store_true",
+        default=False,
+        help="Whether target should be selected automatically.",
+    )
+
+    p.add_argument(
+        "--mask_input",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Whether the input stacks should be masked prior to computation.",
     )
 
     args = p.parse_args(argv)
@@ -323,7 +351,9 @@ def main(argv=None):
         alpha=alpha,
         participant_label=participant_label,
         use_preprocessed=use_preprocessed,
+        automated_template=not args.no_automated_stack,
         resolution=resolution,
+        mask_input=args.mask_input,
         fake_run=fake_run,
     )
     if nprocs > 1:

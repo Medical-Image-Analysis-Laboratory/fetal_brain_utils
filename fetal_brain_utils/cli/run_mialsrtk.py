@@ -1,4 +1,4 @@
-def edit_output_json(out_folder, config, cmd, auto_dict, participant_label=None):
+def edit_output_json(out_folder, config, cmd, participant_label=None):
     import json
     import os
 
@@ -42,8 +42,6 @@ def edit_output_json(out_folder, config, cmd, auto_dict, participant_label=None)
             conf["Description"] = mialsrtk_data["Description"]
             conf["CustomMetaData"] = mialsrtk_data["CustomMetaData"]
             conf["Input sources run order"] = mialsrtk_data["Input sources run order"]
-            if auto_dict:
-                conf["use_auto_mask"] = auto_dict[sub][ses]
             custom_key = "custom_interfaces"
             custom_interfaces = (
                 sub_ses_dict[custom_key] if custom_key in sub_ses_dict.keys() else {}
@@ -114,15 +112,9 @@ def main(argv=None):
     import time
     from pathlib import Path
     from .parser import get_default_parser
-    import argparse
-    import sys
 
-    PYMIALSRTK_PATH = (
-        "/home/tsanchez/Documents/mial/" "repositories/mialsuperresolutiontoolkit/pymialsrtk"
-    )
-    DOCKER_VERSION = "v2.1.0"
+    DOCKER_VERSION = "latest"
 
-    PATH_TO_ATLAS = "/media/tsanchez/tsanchez_data/data/atlas"
     p = get_default_parser("MIALSRTK")
     p.add_argument(
         "--docker_version",
@@ -138,24 +130,24 @@ def main(argv=None):
         default="sr",
     )
     p.add_argument(
-        "--automated",
-        action="store_true",
-        default=False,
-        help="Run with automated masks",
-    )
-    p.add_argument(
         "--txt_to",
         default=None,
-        help="Where the text output is stored. By default, it is output to " "the command line.",
+        help="Where the text output is stored. By default, it is output to the command line.",
     )
     p.add_argument(
         "--labels_derivatives_dir",
         default=None,
-        help="Where the labels are stored (absolute path).",
+        help="Where the labels are stored.",
+    )
+
+    p.add_argument(
+        "--atlas_dir",
+        default=None,
+        help="Where Gholipour's STA is stored.",
     )
     p.add_argument(
         "--pymialsrtk_path",
-        default=PYMIALSRTK_PATH,
+        default=None,
         help="Where pymialsrtk is located.",
     )
     p.add_argument(
@@ -164,19 +156,6 @@ def main(argv=None):
         default=False,
         help="Verbose output",
     )
-    p.add_argument(
-        "--no_python_mount",
-        action="store_true",
-        default=False,
-        help="Whether the python folder should not be mounted.",
-    )
-
-    p.add_argument(
-        "--complement_missing_masks",
-        action="store_true",
-        default=False,
-        help="Whether missing masks should be replaced with automated masks.",
-    )
 
     args = p.parse_args(argv)
 
@@ -184,13 +163,12 @@ def main(argv=None):
     docker_version = args.docker_version
     run_type = args.run_type
     participant_label = args.participant_label
-    automated = args.automated
     txt_to = args.txt_to
     param_file = args.config
     out_folder = args.out_path
-    masks_derivatives_dir = args.masks_path
+    masks_derivatives_dir = Path(args.masks_path).resolve()
+    atlas_dir = Path(args.atlas_dir).resolve()
     labels_derivatives_dir = args.labels_derivatives_dir
-    complement_missing_masks = args.complement_missing_masks
     if masks_derivatives_dir:
         masks_derivatives_dir = Path(masks_derivatives_dir).absolute()
     if labels_derivatives_dir:
@@ -198,53 +176,26 @@ def main(argv=None):
 
     pymialsrtk_path = args.pymialsrtk_path
     verbose = args.verbose
-    no_python_mount = args.no_python_mount
 
-    mask_str = "automated" if automated else "manual"
-    if not masks_derivatives_dir and not automated:
-        raise RuntimeError("masks_derivatives_dir should be defined when" " using manual masks.")
-    elif masks_derivatives_dir and automated:
-        raise RuntimeError(
-            "Incompatible value of parameters automated and "
-            "masks_derivatives_dir. The masks_derivatives_dir should only be "
-            "defined when automated=False."
-        )
-    masks_derivatives_dir = None if automated else masks_derivatives_dir
+    if masks_derivatives_dir is None:
+        raise RuntimeError("masks_derivatives_dir should be defined.")
 
     if not out_folder:
-        out_folder = f"derivatives/{run_type}_{mask_str}"
-        out_folder = data_path / out_folder
+        raise RuntimeError("Please define out_folder.")
     out_folder = Path(out_folder).absolute()
     if not args.fake_run:
         os.makedirs(out_folder, exist_ok=True)
-    auto_dict = None
-    if complement_missing_masks:
-        assert masks_derivatives_dir is not None, (
-            "Cannot use --complement_missing_masks if masks_derivatives_dir is None",
-        )
-
-        auto_dict = find_and_copy_masks(
-            param_file,
-            masks_derivatives_dir,
-            out_folder / "masks",
-        )
-        masks_derivatives_dir = out_folder / "masks"
 
     if param_file:
         param_file = Path(param_file).absolute()
         subject_json = Path("/code/") / param_file.name
-    else:
-        if automated:
-            subject_json = Path("/bids_dir/code/") / "automated_preprocessing_config.json"
-        else:
-            subject_json = Path("/bids_dir/code/") / "manual_preprocessing_config.json"
 
     base_command = (
         f"docker run --rm -t -u $(id -u):$(id -g)"
         f" -v {data_path}:/bids_dir"
         f" -v {out_folder}:/output_dir"
     )
-    if not no_python_mount:
+    if pymialsrtk_path is not None:
         base_command += (
             f" -v {pymialsrtk_path}:/opt/conda/lib/python3.7/site-" f"packages/pymialsrtk/"
         )
@@ -255,7 +206,7 @@ def main(argv=None):
     if param_file:
         base_command += f" -v {param_file.parent}:/code"
     base_command += (
-        f" -v {PATH_TO_ATLAS}:/sta"
+        f" -v {atlas_dir}:/sta"
         f" sebastientourbier/mialsuperresolutiontoolkit-bidsapp"  # -bidsapp
         f":{docker_version}"
         f" /bids_dir /output_dir participant"
@@ -286,13 +237,12 @@ def main(argv=None):
 
     if not args.fake_run:
         # Renaming the pymialsrtk output to a folder with the same name as the output folder.
-        merge_and_overwrite_folder(out_folder / f"pymialsrtk-{DOCKER_VERSION[1:]}", out_final)
+        merge_and_overwrite_folder(out_folder / f"pymialsrtk-{docker_version}", out_final)
 
         edit_output_json(
             out_final,
             param_file.absolute(),
             base_command,
-            auto_dict,
             participant_label,
         )
 

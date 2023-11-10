@@ -167,7 +167,7 @@ def main(argv=None):
     param_file = args.config
     out_folder = args.out_path
     masks_derivatives_dir = Path(args.masks_path).resolve()
-    atlas_dir = Path(args.atlas_dir).resolve()
+    atlas_dir = Path(args.atlas_dir).resolve() if args.atlas_dir else None
     labels_derivatives_dir = args.labels_derivatives_dir
     if masks_derivatives_dir:
         masks_derivatives_dir = Path(masks_derivatives_dir).absolute()

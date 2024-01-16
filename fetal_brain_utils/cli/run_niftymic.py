@@ -67,6 +67,7 @@ def iterate_subject(
     resolution,
     mask_input,
     fake_run,
+    boundary_mm=15,
 ):
     if participant_label:
         if sub not in participant_label:
@@ -152,7 +153,6 @@ def iterate_subject(
             # Construct the path to each data point and mask in
             # the filesystem of the docker image
             filename_data, filename_masks, filename_prepro = [], [], []
-            boundary_mm = 15
             crop_path = partial(
                 get_cropped_stack_based_on_mask,
                 boundary_i=boundary_mm,
@@ -212,6 +212,8 @@ def iterate_subject(
                 f" --isotropic-resolution {resolution}"
                 f" --suffix-mask _mask"
                 f" --alpha {alpha} "
+                f" --extra-frame-target {boundary_mm}"
+                f" --boundary-stacks {boundary_mm} {boundary_mm} {boundary_mm}"
             )
             if not automated_template:
                 cmd += " --automatic-target-stack 0"
@@ -321,6 +323,13 @@ def main(argv=None):
         help="Whether the input stacks should be masked prior to computation.",
     )
 
+    p.add_argument(
+        "--boundary_mm",
+        default=15,
+        type=int,
+        help="Boundary added to the cropped image around the mask (in mm)",
+    )
+
     args = p.parse_args(argv)
     data_path = Path(args.data_path).resolve()
     config = Path(args.config).resolve()
@@ -355,6 +364,7 @@ def main(argv=None):
         resolution=resolution,
         mask_input=args.mask_input,
         fake_run=fake_run,
+        boundary_mm=args.boundary_mm,
     )
     if nprocs > 1:
         pool = multiprocessing.Pool(nprocs)

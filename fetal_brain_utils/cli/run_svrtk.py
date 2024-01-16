@@ -60,7 +60,7 @@ def iterate_subject(
     docker_out_path = output_path / "run_files"
     recon_out_path = output_path / "svrtk"
     prepro_path_base = docker_out_path / "preprocess"
-
+    recon_path_base = docker_out_path / "recon"
     if not fake_run:
         os.makedirs(docker_out_path, exist_ok=True)
 
@@ -159,8 +159,7 @@ def iterate_subject(
             ##
             # Reconstruction stage
             ##
-
-            recon_path = recon_out_path / sub_ses_anat
+            recon_path = recon_path_base / sub_ses_anat
             if not fake_run:
                 os.makedirs(recon_path, exist_ok=True)
 
@@ -196,6 +195,10 @@ def iterate_subject(
             if not fake_run:
                 os.system(cmd)
                 # Copy files in BIDS format
+                recon_out = recon_out_path / sub_ses_anat
+                os.makedirs(recon_out, exist_ok=True)
+
+                shutil.copy(recon_path / "reo-SVR-output-brain.nii.gz", recon_out / recon_file)
 
                 # Creating the dataset_description file.
                 os.makedirs(output_path / "svrtk", exist_ok=True)
@@ -206,7 +209,7 @@ def iterate_subject(
                 with open(output_path / "svrtk" / "dataset_description.json", "w") as f:
                     json.dump(dataset_description, f)
 
-                final_rec_json = recon_path / recon_file.replace("nii.gz", "json")
+                final_rec_json = recon_out / recon_file.replace("nii.gz", "json")
 
                 conf["info"] = {
                     "reconstruction": "SVRTK",

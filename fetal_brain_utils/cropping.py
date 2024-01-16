@@ -11,25 +11,27 @@ def get_cropped_stack_based_on_mask(
     """
     Crops the input image to the field of view given by the bounding box
     around its mask.
-    Original code by Michael Ebner:
-    https://github.com/gift-surg/NiftyMIC/blob/master/niftymic/base/stack.py
+    Code inspired from Michael Ebner: https://github.com/gift-surg/NiftyMIC/blob/master/niftymic/base/stack.py
 
     Input
     -----
-    image_ni:
+    image_ni: Nifti image
         Nifti image
-    mask_ni:
+    mask_ni: Nifti image
         Corresponding nifti mask
-    boundary_i:
-    boundary_j:
-    boundary_k:
-    unit:
+    boundary_i: int
+        Boundary to add to the bounding box in the i direction
+    boundary_j: int
+        Boundary to add to the bounding box in the j direction
+    boundary_k: int
+        Boundary to add to the bounding box in the k direction
+    unit: str
         The unit defining the dimension size in nifti
 
     Output
     ------
     image_cropped:
-        Image cropped to the bounding box of mask_ni
+        Image cropped to the bounding box of mask_ni, including boundary
     mask_cropped
         Mask cropped to its bounding box
     """
@@ -69,54 +71,18 @@ def get_cropped_stack_based_on_mask(
     new_origin = list(
         ni.affines.apply_affine(mask_ni.affine, [x_range[0], y_range[0], z_range[0]])
     ) + [1]
+
     new_affine = image_ni.affine
     new_affine[:, -1] = new_origin
-    image_cropped = crop_image_to_region(image, x_range, y_range, z_range)
-    image_cropped = ni.Nifti1Image(image_cropped, new_affine)
-    # image_cropped.header.set_xyzt_units(2)
-    # image_cropped.header.set_qform(new_affine, code="aligned")
-    # image_cropped.header.set_sform(new_affine, code="scanner")
-    return image_cropped
 
-
-def crop_image_to_region(
-    image: np.ndarray,
-    range_x: np.ndarray,
-    range_y: np.ndarray,
-    range_z: np.ndarray,
-) -> np.ndarray:
-    """
-    Crop given image to region defined by voxel space ranges
-    Original code by Michael Ebner:
-    https://github.com/gift-surg/NiftyMIC/blob/master/niftymic/base/stack.py
-
-    Input
-    ------
-    image: np.array
-        image which will be cropped
-    range_x: (int, int)
-        pair defining x interval in voxel space for image cropping
-    range_y: (int, int)
-        pair defining y interval in voxel space for image cropping
-    range_z: (int, int)
-        pair defining z interval in voxel space for image cropping
-
-    Output
-    ------
-    image_cropped:
-        The image cropped to the given x-y-z region.
-    """
     image_cropped = image[
-        range_x[0] : range_x[1],
-        range_y[0] : range_y[1],
-        range_z[0] : range_z[1],
+        x_range[0] : x_range[1],
+        y_range[0] : y_range[1],
+        z_range[0] : z_range[1],
     ]
+
+    image_cropped = ni.Nifti1Image(image_cropped, new_affine)
     return image_cropped
-    # Return rectangular region surrounding masked region.
-    #  \param[in] mask_sitk sitk.Image representing the mask
-    #  \return range_x pair defining x interval of mask in voxel space
-    #  \return range_y pair defining y interval of mask in voxel space
-    #  \return range_z pair defining z interval of mask in voxel space
 
 
 def get_rectangular_masked_region(
@@ -124,8 +90,7 @@ def get_rectangular_masked_region(
 ) -> tuple:
     """
     Computes the bounding box around the given mask
-    Original code by Michael Ebner:
-    https://github.com/gift-surg/NiftyMIC/blob/master/niftymic/base/stack.py
+    Code inspired from Michael Ebner: https://github.com/gift-surg/NiftyMIC/blob/master/niftymic/base/stack.py
 
     Input
     -----
@@ -141,34 +106,17 @@ def get_rectangular_masked_region(
     if np.sum(abs(mask)) == 0:
         return None, None, None
     shape = mask.shape
-    # Compute sum of pixels of each slice along specified directions
-    sum_xy = np.sum(mask, axis=(0, 1))  # sum within x-y-plane
-    sum_xz = np.sum(mask, axis=(0, 2))  # sum within x-z-plane
-    sum_yz = np.sum(mask, axis=(1, 2))  # sum within y-z-plane
+    # Define the dimensions along which to sum the data
+    sum_axis = [(1, 2), (0, 2), (0, 1)]
+    range_list = []
 
-    # Find masked regions (non-zero sum!)
-    range_x = np.zeros(2)
-    range_y = np.zeros(2)
-    range_z = np.zeros(2)
+    # Non-zero elements of numpy array along the the 3 dimensions
+    for i in range(3):
+        sum_mask = np.sum(mask, axis=sum_axis[i])
+        ran = np.nonzero(sum_mask)[0]
 
-    # Non-zero elements of numpy array nda defining x_range
-    ran = np.nonzero(sum_yz)[0]
-    range_x[0] = np.max([0, ran[0]])
-    range_x[1] = np.min([shape[0], ran[-1] + 1])
+        low = np.max([0, ran[0]])
+        high = np.min([shape[0], ran[-1] + 1])
+        range_list.append(np.array([low, high]).astype(int))
 
-    # Non-zero elements of numpy array nda defining y_range
-    ran = np.nonzero(sum_xz)[0]
-    range_y[0] = np.max([0, ran[0]])
-    range_y[1] = np.min([shape[1], ran[-1] + 1])
-
-    # Non-zero elements of numpy array nda defining z_range
-    ran = np.nonzero(sum_xy)[0]
-    range_z[0] = np.max([0, ran[0]])
-    range_z[1] = np.min([shape[2], ran[-1] + 1])
-
-    # Numpy reads the array as z,y,x coordinates! So swap them accordingly
-    return (
-        range_x.astype(int),
-        range_y.astype(int),
-        range_z.astype(int),
-    )
+    return range_list

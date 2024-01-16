@@ -13,6 +13,5 @@ from .utils import (
 
 from .cropping import (
     get_cropped_stack_based_on_mask,
-    crop_image_to_region,
     get_rectangular_masked_region,
 )

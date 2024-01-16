@@ -192,7 +192,6 @@ def iterate_subject(
                     f"docker run --gpus '\"device=0\"' "
                     f"-v {mount_base}:/data "
                     f"-v {output_sub_ses}:/out "
-                    f"-v /media/tsanchez/tsanchez_data/data/NeSVoR/nesvor/:/usr/local/NeSVoR/nesvor/ -it "
                     f"junshenxu/nesvor:{nesvor_version} nesvor reconstruct "
                     f"--input-stacks {img_str} "
                     f"--stack-masks {mask_str} "

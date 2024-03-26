@@ -3,6 +3,56 @@ import numpy as np
 import nibabel as ni
 from .definitions import AUTO_MASK_PATH
 from .utils import squeeze_dim
+from functools import partial
+from pathlib import Path
+import os
+
+
+def crop_input(
+    sub,
+    ses,
+    output_path,
+    img_list,
+    mask_list,
+    mask_input,
+    fake_run=False,
+    boundary_ip=15,
+    boundary_tp=0,
+):
+
+    sub_ses_output = output_path / f"sub-{sub}/ses-{ses}/anat"
+    if not fake_run:
+        os.makedirs(sub_ses_output, exist_ok=True)
+
+    crop_path = partial(
+        get_cropped_stack_based_on_mask,
+        boundary_i=boundary_ip,
+        boundary_j=boundary_ip,
+        boundary_k=boundary_tp,
+    )
+    im_list_c, mask_list_c = [], []
+    for image, mask in zip(img_list, mask_list):
+        print(f"Processing {image} {mask}")
+        im_file, mask_file = Path(image).name, Path(mask).name
+        cropped_im_path = sub_ses_output / im_file
+        cropped_mask_path = sub_ses_output / mask_file
+        im, m = ni.load(image), ni.load(mask)
+
+        imc = crop_path(im, m)
+        maskc = crop_path(m, m)
+        # Masking
+
+        if imc is not None:
+            if mask_input:
+                imc = ni.Nifti1Image(imc.get_fdata() * maskc.get_fdata(), imc.affine)
+            else:
+                imc = ni.Nifti1Image(imc.get_fdata(), imc.affine)
+            if not fake_run:
+                ni.save(imc, cropped_im_path)
+                ni.save(maskc, cropped_mask_path)
+            im_list_c.append(str(cropped_im_path))
+            mask_list_c.append(str(cropped_mask_path))
+    return im_list_c, mask_list_c
 
 
 def get_cropped_stack_based_on_mask(

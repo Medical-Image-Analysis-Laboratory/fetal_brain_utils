@@ -7,6 +7,7 @@ sub-<id>_ses-<id>_desc-iso_mask.nii.gz
 Note that, currently, for simulated data, the brain extraction module
 will crash for reasons that are beyond my understanding.
 """
+
 from fetal_brain_utils import (
     get_cropped_stack_based_on_mask,
     filter_run_list,
@@ -166,7 +167,7 @@ def iterate_subject(
             # Replace input and mask path by preprocessed
             input_path = input_prepro_path
             # , mask_path = , mask_cropped_path
-            recon_file = f"{sub_path}_{ses_path}_{run_path}_rec-SR_T2w.nii.gz"
+            recon_file = f"{sub_path}_{ses_path}_{run_path}_rec-svrtk_T2w.nii.gz"
 
             if use_svrtk_auto:
                 cmd = (

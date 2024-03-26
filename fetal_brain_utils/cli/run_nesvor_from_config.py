@@ -1,6 +1,7 @@
 """
 Run the NeSVor pipeline on data.
 """
+
 from fetal_brain_utils import iter_dir
 from fetal_brain_utils.definitions import OUT_JSON_ORDER
 from bids.layout.writing import build_path
@@ -15,7 +16,7 @@ import nibabel as ni
 import subprocess
 
 # Only use device_id=1 (device_id=0 not very efficient)
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ["MKL_THREADING_LAYER"] = "GNU"
 
 # Default data path

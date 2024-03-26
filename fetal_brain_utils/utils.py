@@ -5,9 +5,7 @@ from functools import reduce
 import json
 from pathlib import Path
 import re
-import copy
 import numpy as np
-import nibabel as ni
 import os
 from bids.layout.writing import build_path
 from .definitions import AUTO_MASK_PATH, PATTERN

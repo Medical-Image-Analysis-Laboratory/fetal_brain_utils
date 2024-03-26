@@ -12,6 +12,7 @@ from .utils import (
 )
 
 from .cropping import (
+    crop_input,
     get_cropped_stack_based_on_mask,
     get_rectangular_masked_region,
 )

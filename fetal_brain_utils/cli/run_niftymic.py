@@ -68,6 +68,8 @@ def iterate_subject(
     mask_input,
     fake_run,
     boundary_mm=15,
+    niftymic_path=None,
+    no_preprocessing=False,
 ):
     if participant_label:
         if sub not in participant_label:
@@ -160,11 +162,12 @@ def iterate_subject(
                 os.makedirs(recon_path, exist_ok=True)
 
             # Replace input and mask path by preprocessed
-            cmd = (
-                f"docker run -v {mount_base}:/data "
-                f"-v {recon_path}:/srr "
-                # Modified niftymic is needed for taking extra-frame-target as input.
-                # f"-v {MODIFIED_NIFTYMIC}:/app/NiftyMIC/niftymic "
+            cmd = f"docker run -v {mount_base}:/data " f"-v {recon_path}:/srr "
+            # Modified niftymic is needed for taking extra-frame-target as input.
+            if niftymic_path is not None:
+                cmd += f"-v {niftymic_path}:/app/NiftyMIC/niftymic "
+
+            cmd += (
                 f"renbem/niftymic python "
                 f"{RECONSTRUCTION_PYTHON} "
                 f"--filenames {filename_data} "
@@ -178,6 +181,12 @@ def iterate_subject(
             )
             if not automated_template:
                 cmd += " --automatic-target-stack 0"
+            if no_preprocessing:
+                cmd += (
+                    " --bias-field-correction 0 "
+                    "--intensity-correction 0 "
+                    "--run-recon-template-space 0"
+                )
             print("RECONSTRUCTION STAGE")
             print(cmd)
             print()
@@ -288,11 +297,25 @@ def main(argv=None):
         help="Boundary added to the cropped image around the mask (in mm)",
     )
 
+    p.add_argument(
+        "--niftymic_path",
+        default=None,
+        help="Where the local copy of niftymic is located for mounting on the docker.",
+    )
+
+    p.add_argument(
+        "--no_preprocessing",
+        action="store_true",
+        default=False,
+        help="Whether the preprocessing should be skipped (for T2 mapping).",
+    )
+
     args = p.parse_args(argv)
     data_path = Path(args.data_path).resolve()
     config = Path(args.config).resolve()
     masks_folder = Path(args.masks_path).resolve()
     out_path = Path(args.out_path).resolve()
+    niftymic_path = Path(args.niftymic_path).resolve()
     alpha = args.alpha
     participant_label = args.participant_label
     resolution = args.resolution
@@ -321,6 +344,8 @@ def main(argv=None):
         mask_input=args.mask_input,
         fake_run=fake_run,
         boundary_mm=args.boundary_mm,
+        niftymic_path=niftymic_path,
+        no_preprocessing=args.no_preprocessing,
     )
     if nprocs > 1:
         pool = multiprocessing.Pool(nprocs)

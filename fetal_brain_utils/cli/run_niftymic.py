@@ -185,7 +185,9 @@ def iterate_subject(
                 cmd += (
                     " --bias-field-correction 0 "
                     "--intensity-correction 0 "
-                    "--run-recon-template-space 0"
+                    "--run-recon-template-space 0 "
+                    "--two-step-cycles 0 "
+                    "--automatic-target-stack 0"
                 )
             print("RECONSTRUCTION STAGE")
             print(cmd)
@@ -216,13 +218,20 @@ def iterate_subject(
             final_mask = final_base + "_mask.nii.gz"
 
             if not fake_run:
+                if no_preprocessing:
+                    rec_path = recon_path / "recon_subject_space/srr_subject.nii.gz"
+                    mask_path = recon_path / "recon_subject_space/srr_subject_mask.nii.gz"
+
+                else:
+                    rec_path = recon_path / "recon_template_space/srr_template.nii.gz"
+                    mask_path = recon_path / "recon_template_space/srr_template_mask.nii.gz"
                 shutil.copyfile(
-                    recon_path / "recon_template_space/srr_template.nii.gz",
+                    rec_path,
                     final_rec,
                 )
 
                 shutil.copyfile(
-                    recon_path / "recon_template_space/srr_template_mask.nii.gz",
+                    mask_path,
                     final_mask,
                 )
 

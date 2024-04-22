@@ -166,7 +166,7 @@ def get_rectangular_masked_region(
         ran = np.nonzero(sum_mask)[0]
 
         low = np.max([0, ran[0]])
-        high = np.min([shape[0], ran[-1] + 1])
+        high = np.min([shape[i], ran[-1] + 1])
         range_list.append(np.array([low, high]).astype(int))
 
     return range_list

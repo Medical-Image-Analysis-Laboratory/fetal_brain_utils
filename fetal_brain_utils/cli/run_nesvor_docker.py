@@ -14,6 +14,7 @@ import re
 import nibabel as ni
 import pdb
 from bids.layout import BIDSLayout
+import shutil
 
 # Default data path
 DATA_PATH = Path("/media/tsanchez/tsanchez_data/data/data")
@@ -49,14 +50,16 @@ def iterate_subject(
 
     if recon_type == "svr":
         assert len(target_res) == 1, "Only one resolution can be used for SVR."
-    # if sub not in sub_ses_dict:
-    #    print(f"Subject {sub} not found in {data_path}")
-    #    return
+        # if sub not in sub_ses_dict:
+        #    print(f"Subject {sub} not found in {data_path}")
+        #    return
+        output_path = Path(output_path)
 
-    mask_base_path = Path(mask_base_path)
-    masks_layout = BIDSLayout(mask_base_path, validate=False)
-    output_path = Path(output_path)
-    output_path_crop = output_path / "cropped_input"
+    mask_on = mask_base_path is not None
+    if mask_on:
+        mask_base_path = Path(mask_base_path)
+        masks_layout = BIDSLayout(mask_base_path, validate=False)
+        output_path_crop = output_path / "cropped_input"
     output_path = output_path / "nesvor"
     if not fake_run:
         os.makedirs(output_path, exist_ok=True)
@@ -73,22 +76,25 @@ def iterate_subject(
             extension="nii.gz",
             return_type="filename",
         )
-        mask_list = masks_layout.get_runs(
-            subject=sub,
-            session=ses,
-            extension="nii.gz",
-            return_type="filename",
-        )
+        if mask_on:
+            mask_list = masks_layout.get_runs(
+                subject=sub,
+                session=ses,
+                extension="nii.gz",
+                return_type="filename",
+            )
         stacks = conf["stacks"] if "stacks" in conf else find_run_id(img_list)
         run_id = conf["sr-id"] if "sr-id" in conf else "1"
         run_path = f"run-{run_id}"
 
-        mask_list = [str(f) for f in mask_list]
         img_list = [str(f) for f in filter_run_list(stacks, img_list)]
-        mask_list = [str(f) for f in filter_run_list(stacks, mask_list)]
-
         conf["im_path"] = img_list
-        conf["mask_path"] = mask_list
+
+        if mask_on:
+            mask_list = [str(f) for f in mask_list]
+            mask_list = [str(f) for f in filter_run_list(stacks, mask_list)]
+            conf["mask_path"] = mask_list
+
         conf["config_path"] = str(config)
         ses_path = f"ses-{ses}"
         # Construct the data and mask path from their respective
@@ -98,19 +104,21 @@ def iterate_subject(
         )
         if not fake_run:
             os.makedirs(output_sub_ses, exist_ok=True)
-        img_list, mask_list = crop_input(
-            sub,
-            ses,
-            output_path_crop,
-            img_list,
-            mask_list,
-            mask_input,
-            fake_run,
-        )
+        if mask_on:
+            img_list, mask_list = crop_input(
+                sub,
+                ses,
+                output_path_crop,
+                img_list,
+                mask_list,
+                mask_input,
+                fake_run,
+            )
 
         mount_base = Path(img_list[0]).parent
         img_str = " ".join([str(Path("/data") / Path(im).name) for im in img_list])
-        mask_str = " ".join([str(Path("/data") / Path(m).name) for m in mask_list])
+        if mask_on:
+            mask_str = " ".join([str(Path("/data") / Path(m).name) for m in mask_list])
 
         out = Path("/out")
         model = out / f"{sub_path}_{ses_path}_{run_path}_model.pt"
@@ -135,9 +143,10 @@ def iterate_subject(
                     f"-v {output_sub_ses}:/out "
                     f"junshenxu/nesvor:{nesvor_version} nesvor {nesvor_arg} "
                     f"--input-stacks {img_str} "
-                    f"--stack-masks {mask_str} "
                     f"--output-volume {output_file} "
                 )
+                if mask_on:
+                    cmd += f"--stack-masks {mask_str} "
                 if recon_type == "nesvor":
                     cmd += (
                         f"--output-resolution {res} "
@@ -237,11 +246,16 @@ def main(argv=None):
         default="",
         help="Extra commands to be added to the NeSVoR command.",
     )
+
     args = p.parse_args(argv)
 
     data_path = Path(args.data_path).resolve()
     out_path = Path(args.out_path).resolve()
-    masks_folder = Path(args.masks_path).resolve()
+    masks_on = args.masks_path is not None
+    if masks_on:
+        masks_folder = Path(args.masks_path).resolve()
+    else:
+        masks_folder = None
     config = Path(args.config).resolve()
 
     bids_layout = BIDSLayout(data_path, validate=False)

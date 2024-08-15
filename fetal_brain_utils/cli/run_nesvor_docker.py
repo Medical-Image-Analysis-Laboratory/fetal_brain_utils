@@ -39,6 +39,7 @@ def iterate_subject(
     recon_type,
     mask_input,
     fake_run,
+    bias_field_correction,
     extra_commands,
 ):
     if participant_label:
@@ -151,12 +152,12 @@ def iterate_subject(
                     cmd += (
                         f"--output-resolution {res} "
                         f"--output-model {model} "
-                        f"--n-levels-bias 1 "
                         f"--batch-size {batch_size} "
                         " --n-proc-n4 1 "
                     )
-                if nesvor_version == "v0.5.0":
+                if nesvor_version == "v0.5.0" and bias_field_correction:
                     cmd += "--bias-field-correction"
+                    cmd += "--n-levels-bias 1 "
                 if extra_commands != "":
                     cmd += f" {extra_commands}"
             else:
@@ -247,6 +248,12 @@ def main(argv=None):
         help="Extra commands to be added to the NeSVoR command.",
     )
 
+    p.add_argument(
+        "--bias_field_correction",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Whether the input stacks should be bias corrected prior to  computation.",
+    )
     args = p.parse_args(argv)
 
     data_path = Path(args.data_path).resolve()
@@ -277,6 +284,7 @@ def main(argv=None):
         mask_input=args.mask_input,
         recon_type=args.recon_type,
         extra_commands=args.extra_commands,
+        bias_field_correction=args.bias_field_correction,
         fake_run=args.fake_run,
     )
     for sub, config_sub in params.items():

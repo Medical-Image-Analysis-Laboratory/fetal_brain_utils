@@ -41,6 +41,7 @@ def iterate_subject(
     fake_run,
     bias_field_correction,
     extra_commands,
+    denoise,
 ):
     if participant_label:
         if sub not in participant_label:
@@ -114,6 +115,8 @@ def iterate_subject(
                 mask_list,
                 mask_input,
                 fake_run,
+                denoise=denoise,
+                correct_bias=bias_field_correction,
             )
 
         mount_base = Path(img_list[0]).parent
@@ -142,6 +145,7 @@ def iterate_subject(
                     f"docker run --gpus '\"device=0\"' "
                     f"-v {mount_base}:/data "
                     f"-v {output_sub_ses}:/out "
+                    # "-v /home/tsanchez/Documents/mial/repositories/NeSVoR/nesvor:/usr/local/NeSVoR/nesvor "
                     f"junshenxu/nesvor:{nesvor_version} nesvor {nesvor_arg} "
                     f"--input-stacks {img_str} "
                     f"--output-volume {output_file} "
@@ -156,7 +160,7 @@ def iterate_subject(
                         " --n-proc-n4 1 "
                     )
                 if nesvor_version == "v0.5.0" and bias_field_correction:
-                    cmd += "--bias-field-correction"
+                    # cmd += "--bias-field-correction "
                     cmd += "--n-levels-bias 1 "
                 if extra_commands != "":
                     cmd += f" {extra_commands}"
@@ -251,8 +255,14 @@ def main(argv=None):
     p.add_argument(
         "--bias_field_correction",
         action=argparse.BooleanOptionalAction,
-        default=False,
+        default=True,
         help="Whether the input stacks should be bias corrected prior to  computation.",
+    )
+    p.add_argument(
+        "--denoise_input",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Whether the input stacks should be denoised prior to computation.",
     )
     args = p.parse_args(argv)
 
@@ -286,6 +296,7 @@ def main(argv=None):
         extra_commands=args.extra_commands,
         bias_field_correction=args.bias_field_correction,
         fake_run=args.fake_run,
+        denoise=args.denoise_input,
     )
     for sub, config_sub in params.items():
         iterate(sub, config_sub)

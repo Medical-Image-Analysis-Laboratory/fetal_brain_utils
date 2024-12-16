@@ -12,7 +12,7 @@ setup(
         "console_scripts": [
             "run_mialsrtk = fetal_brain_utils.cli.run_mialsrtk:main",
             "run_niftymic = fetal_brain_utils.cli.run_niftymic:main",
-            "run_nesvor_source = fetal_brain_utils.cli.run_nesvor_from_config:main",
+            "run_nesvor_source = fetal_brain_utils.cli.run_nesvor_cli:main",
             "run_nesvor = fetal_brain_utils.cli.run_nesvor_docker:main",
             "run_nesvor_qc = fetal_brain_utils.cli.run_nesvor_assess:main",
             "run_svrtk = fetal_brain_utils.cli.run_svrtk:main",
